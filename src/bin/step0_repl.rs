@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use rustyline::{error::ReadlineError, Editor};
 
 fn read(input: &str) -> &str {
     input
@@ -19,22 +19,17 @@ fn rep(input: &str) -> &str {
 }
 
 fn main() {
+    let mut editor = Editor::<()>::new();
     loop {
-        let mut input = String::new();
-        inputline();
-        match io::stdin().read_line(&mut input) {
-            Ok(count) => {
-                if count == 0 {
-                    break;
-                }
-                println!("{}", rep(input.trim_end()));
+        let readline = editor.readline("user> ");
+        match readline {
+            Ok(line) => {
+                println!("{}", rep(line.trim_end()));
+                editor.add_history_entry(line);
             }
-            Err(error) => println!("error: {}", error),
+            Err(ReadlineError::Eof) => break,
+            Err(ReadlineError::Interrupted) => break,
+            Err(err) => eprintln!("Unexpected error encountered {}.", err),
         }
     }
-}
-
-fn inputline() {
-    print!("user> ");
-    io::stdout().flush().unwrap();
 }
