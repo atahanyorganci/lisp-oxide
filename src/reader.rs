@@ -57,7 +57,7 @@ pub enum Token {
     At,
     String(String),
     Comment(String),
-    Symbol(String),
+    Atom(String),
 }
 
 pub fn is_special_char(ch: char) -> bool {
@@ -194,7 +194,7 @@ impl Iterator for Reader {
                             break;
                         }
                     }
-                    break Some(Token::Symbol(result));
+                    break Some(Token::Atom(result));
                 }
                 None => break None,
             }
@@ -269,9 +269,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Token::Symbol(String::from("first")),
-                Token::Symbol(String::from("second")),
-                Token::Symbol(String::from("third")),
+                Token::Atom(String::from("first")),
+                Token::Atom(String::from("second")),
+                Token::Atom(String::from("third")),
             ]
         )
     }
@@ -284,7 +284,7 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Token::Symbol(String::from("atom")),
+                Token::Atom(String::from("atom")),
                 Token::Comment(String::from("; This is comment")),
             ]
         )
