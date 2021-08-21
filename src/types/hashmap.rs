@@ -1,30 +1,36 @@
-use std::{collections::HashMap, convert::TryFrom, fmt::Display};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    convert::TryFrom,
+    fmt::Display,
+    rc::Rc,
+};
 
-use super::{MalType, MalTypeHint};
+use super::{MalKeyword, MalString, MalType};
 
 #[derive(Debug)]
 pub struct MalHashMap {
-    value: HashMap<String, Box<dyn MalType>>,
+    value: HashMap<String, Rc<dyn MalType>>,
 }
 
-impl From<HashMap<String, Box<dyn MalType>>> for MalHashMap {
-    fn from(value: HashMap<String, Box<dyn MalType>>) -> Self {
+impl From<HashMap<String, Rc<dyn MalType>>> for MalHashMap {
+    fn from(value: HashMap<String, Rc<dyn MalType>>) -> Self {
         MalHashMap { value }
     }
 }
 
-impl TryFrom<Vec<Box<dyn MalType>>> for MalHashMap {
+impl TryFrom<Vec<Rc<dyn MalType>>> for MalHashMap {
     type Error = &'static str;
 
-    fn try_from(value: Vec<Box<dyn MalType>>) -> Result<Self, Self::Error> {
+    fn try_from(value: Vec<Rc<dyn MalType>>) -> Result<Self, Self::Error> {
         if value.len() % 2 != 0 {
             return Err("unbalanced");
         }
         let mut map = HashMap::new();
         let mut iter = value.into_iter();
         while let Some(item) = iter.next() {
-            let hint = item.type_hint();
-            if hint != MalTypeHint::String && hint != MalTypeHint::Keyword {
+            let id = item.as_ref().type_id();
+            if id != TypeId::of::<MalString>() && id != TypeId::of::<MalKeyword>() {
                 return Err("unallowed datatype in hashmap");
             }
             let key = item.to_string();
@@ -51,13 +57,17 @@ impl Display for MalHashMap {
 }
 
 impl MalHashMap {
-    pub fn insert(&mut self, key: Box<dyn MalType>, value: Box<dyn MalType>) {
+    pub fn insert(&mut self, key: Rc<dyn MalType>, value: Rc<dyn MalType>) {
         self.value.insert(key.to_string(), value);
     }
 }
 
 impl MalType for MalHashMap {
-    fn type_hint(&self) -> MalTypeHint {
-        MalTypeHint::HashMap
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

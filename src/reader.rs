@@ -3,7 +3,7 @@ use crate::types::{
 };
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{convert::TryFrom, iter::Peekable, str::FromStr};
+use std::{convert::TryFrom, iter::Peekable, rc::Rc, str::FromStr};
 
 #[derive(Debug)]
 pub struct Reader {
@@ -40,7 +40,7 @@ impl Reader {
         self.error.is_some()
     }
 
-    pub fn read_from(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_from(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
@@ -60,7 +60,7 @@ impl Reader {
         }
     }
 
-    pub fn read_quote(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_quote(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         let token = reader.next().unwrap();
         let symbol = match token {
             Token::TildeAt | Token::Apostrophe | Token::BackTick | Token::Tilde => {
@@ -69,17 +69,17 @@ impl Reader {
             _ => panic!("Invalid token: {:?}", token),
         };
         let quoted = Reader::read_from(reader)?;
-        Ok(Box::from(MalList::from(vec![symbol, quoted])))
+        Ok(Rc::from(MalList::from(vec![symbol, quoted])))
     }
 
-    pub fn read_deref(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_deref(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         assert_eq!(reader.next().unwrap(), Token::At);
-        let symbol: Box<dyn MalType> = Box::from(MalSymbol::from("deref".to_string()));
+        let symbol: Rc<dyn MalType> = Rc::from(MalSymbol::from("deref".to_string()));
         let derefed = Reader::read_from(reader)?;
-        Ok(Box::from(MalList::from(vec![symbol, derefed])))
+        Ok(Rc::from(MalList::from(vec![symbol, derefed])))
     }
 
-    fn map_token_to_symbol(token: Token) -> Result<Box<dyn MalType>, ()> {
+    fn map_token_to_symbol(token: Token) -> Result<Rc<dyn MalType>, ()> {
         let symbol = match token {
             Token::TildeAt => "splice-unquote",
             Token::Apostrophe => "quote",
@@ -97,29 +97,29 @@ impl Reader {
             | Token::Comment(_)
             | Token::Atom(_) => return Err(()),
         };
-        Ok(Box::from(MalSymbol::from(symbol.to_string())))
+        Ok(Rc::from(MalSymbol::from(symbol.to_string())))
     }
 
-    pub fn read_list(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_list(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         let list = Reader::read_between(reader, Token::LeftParen, Token::RightParen)?;
-        Ok(Box::from(MalList::from(list)))
+        Ok(Rc::from(MalList::from(list)))
     }
 
-    pub fn read_vec(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_vec(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         let list = Reader::read_between(reader, Token::LeftSquare, Token::RightSquare)?;
-        Ok(Box::from(MalVec::from(list)))
+        Ok(Rc::from(MalVec::from(list)))
     }
 
-    pub fn read_hashmap(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_hashmap(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         let list = Reader::read_between(reader, Token::LeftCurly, Token::RightCurly)?;
-        Ok(Box::from(MalHashMap::try_from(list)?))
+        Ok(Rc::from(MalHashMap::try_from(list)?))
     }
 
     pub fn read_between(
         reader: &mut Peekable<Self>,
         start: Token,
         stop: Token,
-    ) -> Result<Vec<Box<dyn MalType>>, &'static str> {
+    ) -> Result<Vec<Rc<dyn MalType>>, &'static str> {
         assert_eq!(reader.next().unwrap(), start);
         let mut list = Vec::new();
         loop {
@@ -137,7 +137,7 @@ impl Reader {
         Ok(list)
     }
 
-    pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+    pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         lazy_static! {
             static ref INT_RE: Regex = Regex::new("^\\d*$").unwrap();
         }
@@ -145,15 +145,15 @@ impl Reader {
             Some(Token::Atom(atom)) => {
                 if INT_RE.is_match_at(&atom, 0) {
                     let value = i64::from_str(&atom).unwrap();
-                    Ok(Box::from(MalInt::from(value)))
+                    Ok(Rc::from(MalInt::from(value)))
                 } else if atom.starts_with(':') {
                     let word = &atom[1..];
-                    Ok(Box::from(MalKeyword::from(word.to_string())))
+                    Ok(Rc::from(MalKeyword::from(word.to_string())))
                 } else {
-                    Ok(Box::from(MalSymbol::from(atom)))
+                    Ok(Rc::from(MalSymbol::from(atom)))
                 }
             }
-            Some(Token::String(string)) => Ok(Box::from(MalString::from(string))),
+            Some(Token::String(string)) => Ok(Rc::from(MalString::from(string))),
             _ => unimplemented!("Atoms and Strings are implemented"),
         }
     }

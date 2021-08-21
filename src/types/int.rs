@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::{any::Any, fmt::Display};
 
-use super::{MalType, MalTypeHint};
+use super::MalType;
 
 #[derive(Debug)]
 pub struct MalInt {
@@ -20,7 +20,11 @@ impl Display for MalInt {
 }
 
 impl MalType for MalInt {
-    fn type_hint(&self) -> MalTypeHint {
-        MalTypeHint::Int
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 pub mod hashmap;
 pub mod int;
@@ -13,17 +16,16 @@ pub use crate::types::{
     symbol::MalSymbol, vec::MalVec,
 };
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum MalTypeHint {
-    HashMap,
-    Int,
-    List,
-    String,
-    Symbol,
-    Vector,
-    Keyword,
+pub trait MalType: Display + Debug + Any {
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-pub trait MalType: Display + Debug {
-    fn type_hint(&self) -> MalTypeHint;
+impl dyn MalType {
+    pub fn as_type<T: 'static>(&self) -> Result<&T, ()> {
+        match self.as_any().downcast_ref::<T>() {
+            Some(int) => Ok(int),
+            None => Err(()),
+        }
+    }
 }

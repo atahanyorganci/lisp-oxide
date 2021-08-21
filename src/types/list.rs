@@ -1,14 +1,14 @@
-use std::fmt::Display;
+use std::{any::Any, fmt::Display, rc::Rc};
 
-use super::{MalType, MalTypeHint};
+use super::MalType;
 
 #[derive(Debug)]
 pub struct MalList {
-    value: Vec<Box<dyn MalType>>,
+    value: Vec<Rc<dyn MalType>>,
 }
 
-impl From<Vec<Box<dyn MalType>>> for MalList {
-    fn from(value: Vec<Box<dyn MalType>>) -> Self {
+impl From<Vec<Rc<dyn MalType>>> for MalList {
+    fn from(value: Vec<Rc<dyn MalType>>) -> Self {
         MalList { value }
     }
 }
@@ -29,13 +29,25 @@ impl Display for MalList {
 }
 
 impl MalList {
-    pub fn append(&mut self, item: Box<dyn MalType>) {
-        self.value.push(item);
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.value.len()
+    }
+
+    pub fn values(&self) -> &[Rc<dyn MalType>] {
+        self.value.as_slice()
     }
 }
 
 impl MalType for MalList {
-    fn type_hint(&self) -> MalTypeHint {
-        MalTypeHint::List
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

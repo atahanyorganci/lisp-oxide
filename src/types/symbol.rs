@@ -1,14 +1,20 @@
-use std::fmt::Display;
+use std::{any::Any, fmt::Display};
 
-use super::{MalType, MalTypeHint};
+use super::MalType;
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct MalSymbol {
     value: String,
 }
 
 impl From<String> for MalSymbol {
     fn from(value: String) -> Self {
+        MalSymbol { value }
+    }
+}
+impl From<&str> for MalSymbol {
+    fn from(value: &str) -> Self {
+        let value = String::from(value);
         MalSymbol { value }
     }
 }
@@ -20,7 +26,11 @@ impl Display for MalSymbol {
 }
 
 impl MalType for MalSymbol {
-    fn type_hint(&self) -> MalTypeHint {
-        MalTypeHint::Symbol
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

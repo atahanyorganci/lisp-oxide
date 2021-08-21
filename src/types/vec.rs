@@ -1,14 +1,14 @@
-use std::fmt::Display;
+use std::{any::Any, fmt::Display, rc::Rc};
 
-use super::{MalType, MalTypeHint};
+use super::MalType;
 
 #[derive(Debug)]
 pub struct MalVec {
-    value: Vec<Box<dyn MalType>>,
+    value: Vec<Rc<dyn MalType>>,
 }
 
-impl From<Vec<Box<dyn MalType>>> for MalVec {
-    fn from(value: Vec<Box<dyn MalType>>) -> Self {
+impl From<Vec<Rc<dyn MalType>>> for MalVec {
+    fn from(value: Vec<Rc<dyn MalType>>) -> Self {
         MalVec { value }
     }
 }
@@ -29,13 +29,27 @@ impl Display for MalVec {
 }
 
 impl MalVec {
-    pub fn append(&mut self, item: Box<dyn MalType>) {
+    pub fn append(&mut self, item: Rc<dyn MalType>) {
         self.value.push(item);
     }
 }
 
 impl MalType for MalVec {
-    fn type_hint(&self) -> MalTypeHint {
-        MalTypeHint::Vector
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl IntoIterator for MalVec {
+    type Item = Rc<dyn MalType>;
+
+    type IntoIter = std::vec::IntoIter<Rc<dyn MalType>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
     }
 }

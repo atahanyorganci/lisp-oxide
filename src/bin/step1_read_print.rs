@@ -1,16 +1,18 @@
+use std::rc::Rc;
+
 use mal::{reader::Reader, types::MalType};
 use rustyline::{error::ReadlineError, Editor};
 
-fn read(input: String) -> Result<Box<dyn MalType>, &'static str> {
+fn read(input: String) -> Result<Rc<dyn MalType>, &'static str> {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)
 }
 
-fn eval(input: Box<dyn MalType>) -> Result<Box<dyn MalType>, &'static str> {
+fn eval(input: Rc<dyn MalType>) -> Result<Rc<dyn MalType>, &'static str> {
     Ok(input)
 }
 
-fn print(input: Box<dyn MalType>) -> String {
+fn print(input: Rc<dyn MalType>) -> String {
     format!("{}", input)
 }
 
