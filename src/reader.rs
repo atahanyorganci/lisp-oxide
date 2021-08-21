@@ -1,4 +1,4 @@
-use crate::types::{MalInt, MalList, MalString, MalSymbol, MalType};
+use crate::types::{MalInt, MalList, MalString, MalSymbol, MalType, MalVec};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{iter::Peekable, str::FromStr};
@@ -41,17 +41,32 @@ impl Reader {
     pub fn read_from(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
+            Some(Token::LeftSquare) => Reader::read_vec(reader),
             Some(_) => Reader::read_atom(reader),
             None => return Err("Reached end of stream."),
         }
     }
 
     pub fn read_list(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
-        assert_eq!(reader.next().unwrap(), Token::LeftParen);
+        let list = Reader::read_between(reader, Token::LeftParen, Token::RightParen)?;
+        Ok(Box::from(MalList::from(list)))
+    }
+
+    pub fn read_vec(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        let list = Reader::read_between(reader, Token::LeftSquare, Token::RightSquare)?;
+        Ok(Box::from(MalVec::from(list)))
+    }
+
+    pub fn read_between(
+        reader: &mut Peekable<Self>,
+        start: Token,
+        stop: Token,
+    ) -> Result<Vec<Box<dyn MalType>>, &'static str> {
+        assert_eq!(reader.next().unwrap(), start);
         let mut list = Vec::new();
         loop {
             match reader.peek() {
-                Some(Token::RightParen) => break,
+                Some(token) if *token == stop => break,
                 Some(_) => {
                     list.push(Reader::read_from(reader)?);
                 }
@@ -60,8 +75,8 @@ impl Reader {
                 }
             }
         }
-        reader.next().unwrap();
-        Ok(Box::from(MalList::from(list)))
+        assert_eq!(reader.next().unwrap(), stop);
+        Ok(list)
     }
 
     pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
