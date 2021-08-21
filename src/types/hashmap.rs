@@ -23,18 +23,13 @@ impl TryFrom<Vec<Box<dyn MalType>>> for MalHashMap {
         let mut map = HashMap::new();
         let mut iter = value.into_iter();
         while let Some(item) = iter.next() {
-            let key = item.to_string();
-            match item.type_hint() {
-                MalTypeHint::HashMap
-                | MalTypeHint::Int
-                | MalTypeHint::List
-                | MalTypeHint::Symbol
-                | MalTypeHint::Vector => return Err("unallowed datatype in hashmap"),
-                MalTypeHint::String => {
-                    let value = iter.next().unwrap();
-                    map.insert(key, value);
-                }
+            let hint = item.type_hint();
+            if hint != MalTypeHint::String && hint != MalTypeHint::Keyword {
+                return Err("unallowed datatype in hashmap");
             }
+            let key = item.to_string();
+            let value = iter.next().unwrap();
+            map.insert(key, value);
         }
         Ok(map.into())
     }
@@ -46,7 +41,7 @@ impl Display for MalHashMap {
         let mut iter = self.value.iter();
         match iter.next() {
             Some((key, value)) => write!(f, "{} {}", key, value)?,
-            None => return write!(f, "]"),
+            None => return write!(f, "}}"),
         }
         for (key, value) in iter {
             write!(f, " {} {}", key, value)?;

@@ -2,14 +2,15 @@ use std::fmt::{Debug, Display};
 
 pub mod hashmap;
 pub mod int;
+pub mod keyword;
 pub mod list;
 pub mod string;
 pub mod symbol;
 pub mod vec;
 
 pub use crate::types::{
-    hashmap::MalHashMap, int::MalInt, list::MalList, string::MalString, symbol::MalSymbol,
-    vec::MalVec,
+    hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList, string::MalString,
+    symbol::MalSymbol, vec::MalVec,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -20,6 +21,7 @@ pub enum MalTypeHint {
     String,
     Symbol,
     Vector,
+    Keyword,
 }
 
 pub trait MalType: Display + Debug {

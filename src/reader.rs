@@ -1,4 +1,6 @@
-use crate::types::{MalHashMap, MalInt, MalList, MalString, MalSymbol, MalType, MalVec};
+use crate::types::{
+    MalHashMap, MalInt, MalKeyword, MalList, MalString, MalSymbol, MalType, MalVec,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{convert::TryFrom, iter::Peekable, str::FromStr};
@@ -144,6 +146,9 @@ impl Reader {
                 if INT_RE.is_match_at(&atom, 0) {
                     let value = i64::from_str(&atom).unwrap();
                     Ok(Box::from(MalInt::from(value)))
+                } else if atom.starts_with(':') {
+                    let word = &atom[1..];
+                    Ok(Box::from(MalKeyword::from(word.to_string())))
                 } else {
                     Ok(Box::from(MalSymbol::from(atom)))
                 }
