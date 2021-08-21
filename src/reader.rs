@@ -43,9 +43,59 @@ impl Reader {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
             Some(Token::LeftCurly) => Reader::read_hashmap(reader),
-            Some(_) => Reader::read_atom(reader),
-            None => return Err("end of input"),
+            Some(Token::Apostrophe)
+            | Some(Token::Tilde)
+            | Some(Token::BackTick)
+            | Some(Token::TildeAt) => Reader::read_quote(reader),
+            Some(Token::At) => Reader::read_deref(reader),
+            Some(Token::RightParen) | Some(Token::RightSquare) | Some(Token::RightCurly) => {
+                Err("unbalanced")
+            }
+            Some(Token::String(_)) | Some(Token::Atom(_)) => Reader::read_atom(reader),
+            Some(Token::Caret) => Err("unimplemented"),
+            Some(Token::Comment(_)) => unreachable!(),
+            None => Err("end of input"),
         }
+    }
+
+    pub fn read_quote(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        let token = reader.next().unwrap();
+        let symbol = match token {
+            Token::TildeAt | Token::Apostrophe | Token::BackTick | Token::Tilde => {
+                Reader::map_token_to_symbol(token).unwrap()
+            }
+            _ => panic!("Invalid token: {:?}", token),
+        };
+        let quoted = Reader::read_from(reader)?;
+        Ok(Box::from(MalList::from(vec![symbol, quoted])))
+    }
+
+    pub fn read_deref(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        assert_eq!(reader.next().unwrap(), Token::At);
+        let symbol: Box<dyn MalType> = Box::from(MalSymbol::from("deref".to_string()));
+        let derefed = Reader::read_from(reader)?;
+        Ok(Box::from(MalList::from(vec![symbol, derefed])))
+    }
+
+    fn map_token_to_symbol(token: Token) -> Result<Box<dyn MalType>, ()> {
+        let symbol = match token {
+            Token::TildeAt => "splice-unquote",
+            Token::Apostrophe => "quote",
+            Token::BackTick => "quasiquote",
+            Token::Tilde => "unquote",
+            Token::Caret => "with-meta",
+            Token::At => "deref",
+            Token::LeftSquare
+            | Token::RightSquare
+            | Token::LeftCurly
+            | Token::RightCurly
+            | Token::LeftParen
+            | Token::RightParen
+            | Token::String(_)
+            | Token::Comment(_)
+            | Token::Atom(_) => return Err(()),
+        };
+        Ok(Box::from(MalSymbol::from(symbol.to_string())))
     }
 
     pub fn read_list(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
