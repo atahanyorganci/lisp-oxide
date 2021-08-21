@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use crate::types::{MalInt, MalList, MalString, MalSymbol, MalType};
+use lazy_static::lazy_static;
+use regex::Regex;
+use std::{iter::Peekable, str::FromStr};
 
 #[derive(Debug)]
 pub struct Reader {
@@ -33,6 +36,50 @@ impl FromStr for Reader {
 impl Reader {
     pub fn is_err(&self) -> bool {
         self.error.is_some()
+    }
+
+    pub fn read_from(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        match reader.peek() {
+            Some(Token::LeftParen) => Reader::read_list(reader),
+            Some(_) => Reader::read_atom(reader),
+            None => return Err("Reached end of stream."),
+        }
+    }
+
+    pub fn read_list(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        assert_eq!(reader.next().unwrap(), Token::LeftParen);
+        let mut list = Vec::new();
+        loop {
+            match reader.peek() {
+                Some(Token::RightParen) => break,
+                Some(_) => {
+                    list.push(Reader::read_from(reader)?);
+                }
+                None => {
+                    return Err("unbalanced");
+                }
+            }
+        }
+        reader.next().unwrap();
+        Ok(Box::from(MalList::from(list)))
+    }
+
+    pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        lazy_static! {
+            static ref INT_RE: Regex = Regex::new("^\\d*$").unwrap();
+        }
+        match reader.next() {
+            Some(Token::Atom(atom)) => {
+                if INT_RE.is_match_at(&atom, 0) {
+                    let value = i64::from_str(&atom).unwrap();
+                    Ok(Box::from(MalInt::from(value)))
+                } else {
+                    Ok(Box::from(MalSymbol::from(atom)))
+                }
+            }
+            Some(Token::String(string)) => Ok(Box::from(MalString::from(string))),
+            _ => unimplemented!("Atoms and Strings are implemented"),
+        }
     }
 }
 
@@ -161,6 +208,16 @@ impl Iterator for Reader {
                                     string.push('"');
                                     self.index += 1;
                                 }
+                                Some('n') => {
+                                    remaining.next().unwrap();
+                                    string.push('\n');
+                                    self.index += 1;
+                                }
+                                Some('\\') => {
+                                    remaining.next().unwrap();
+                                    string.push('\\');
+                                    self.index += 1;
+                                }
                                 Some(_) => string.push('\\'),
                                 None => break,
                             },
@@ -249,6 +306,24 @@ mod tests {
                 Token::String(String::from("one")),
                 Token::String(String::from("two")),
                 Token::String(String::from("three")),
+            ]
+        )
+    }
+
+    #[test]
+    fn tokenize_strings_with_escape_sequences() {
+        let input = String::from(r#"backslash "\\" double-quote "\"" newline "\n" "#);
+        let reader = Reader::from(input);
+        let result: Vec<_> = reader.collect();
+        assert_eq!(
+            result,
+            vec![
+                Token::Atom(String::from("backslash")),
+                Token::String(String::from("\\")),
+                Token::Atom(String::from("double-quote")),
+                Token::String(String::from("\"")),
+                Token::Atom(String::from("newline")),
+                Token::String(String::from("\n")),
             ]
         )
     }
