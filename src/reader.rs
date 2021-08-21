@@ -259,7 +259,8 @@ impl Iterator for Reader {
                             break;
                         }
                     }
-                    break Some(Token::Comment(result));
+                    let _comment = Token::Comment(result);
+                    break self.next();
                 }
                 Some(_) => {
                     let chars = self.input.get(self.index..).unwrap().chars();
