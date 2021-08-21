@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::MalType;
+use super::{MalType, MalTypeHint};
 
 #[derive(Debug)]
 pub struct MalString {
@@ -19,4 +19,8 @@ impl Display for MalString {
     }
 }
 
-impl MalType for MalString {}
+impl MalType for MalString {
+    fn type_hint(&self) -> MalTypeHint {
+        MalTypeHint::String
+    }
+}

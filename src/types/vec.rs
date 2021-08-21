@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::MalType;
+use super::{MalType, MalTypeHint};
 
 #[derive(Debug)]
 pub struct MalVec {
@@ -34,4 +34,8 @@ impl MalVec {
     }
 }
 
-impl MalType for MalVec {}
+impl MalType for MalVec {
+    fn type_hint(&self) -> MalTypeHint {
+        MalTypeHint::Vector
+    }
+}

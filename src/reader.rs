@@ -1,7 +1,7 @@
-use crate::types::{MalInt, MalList, MalString, MalSymbol, MalType, MalVec};
+use crate::types::{MalHashMap, MalInt, MalList, MalString, MalSymbol, MalType, MalVec};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{iter::Peekable, str::FromStr};
+use std::{convert::TryFrom, iter::Peekable, str::FromStr};
 
 #[derive(Debug)]
 pub struct Reader {
@@ -42,8 +42,9 @@ impl Reader {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
+            Some(Token::LeftCurly) => Reader::read_hashmap(reader),
             Some(_) => Reader::read_atom(reader),
-            None => return Err("Reached end of stream."),
+            None => return Err("end of input"),
         }
     }
 
@@ -55,6 +56,11 @@ impl Reader {
     pub fn read_vec(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
         let list = Reader::read_between(reader, Token::LeftSquare, Token::RightSquare)?;
         Ok(Box::from(MalVec::from(list)))
+    }
+
+    pub fn read_hashmap(reader: &mut Peekable<Self>) -> Result<Box<dyn MalType>, &'static str> {
+        let list = Reader::read_between(reader, Token::LeftCurly, Token::RightCurly)?;
+        Ok(Box::from(MalHashMap::try_from(list)?))
     }
 
     pub fn read_between(
