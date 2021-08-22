@@ -1,6 +1,6 @@
 use std::{
     any::{Any, TypeId},
-    collections::HashMap,
+    collections::{hash_map::Iter, HashMap},
     convert::TryFrom,
     fmt::Display,
     rc::Rc,
@@ -53,6 +53,20 @@ impl Display for MalHashMap {
             write!(f, " {} {}", key, value)?;
         }
         write!(f, "}}")
+    }
+}
+
+impl MalHashMap {
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.value.len()
+    }
+
+    pub fn iter(&self) -> Iter<String, Rc<dyn MalType>> {
+        self.value.iter()
     }
 }
 

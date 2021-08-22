@@ -29,8 +29,16 @@ impl Display for MalVec {
 }
 
 impl MalVec {
-    pub fn append(&mut self, item: Rc<dyn MalType>) {
-        self.value.push(item);
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.value.len()
+    }
+
+    pub fn values(&self) -> &[Rc<dyn MalType>] {
+        self.value.as_slice()
     }
 }
 
