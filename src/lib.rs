@@ -43,9 +43,9 @@ pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> MalResult {
     if let Ok(list) = ast.as_type::<MalList>() {
         if list.is_empty() {
             return Ok(ast);
-        } else if list.is_def() {
+        } else if list[0].is_special("def!") {
             def_fn(&list.values()[1..], env)
-        } else if list.is_let() {
+        } else if list[0].is_special("let*") {
             let_fn(&list.values()[1..], env)
         } else {
             let new_list = eval_ast(ast, env)?;

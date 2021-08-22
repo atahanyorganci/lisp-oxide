@@ -47,6 +47,14 @@ impl dyn MalType {
         }
     }
 
+    pub fn is_special(&self, name: &'static str) -> bool {
+        if let Ok(symbol) = self.as_type::<MalSymbol>() {
+            symbol == name
+        } else {
+            false
+        }
+    }
+
     pub fn truthy(&self) -> bool {
         if self.is::<MalNil>() {
             return false;

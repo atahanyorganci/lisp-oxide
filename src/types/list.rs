@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Display, ops::Index, rc::Rc};
 
-use super::{MalSymbol, MalType};
+use super::MalType;
 
 #[derive(Debug)]
 pub struct MalList {
@@ -47,26 +47,6 @@ impl MalList {
 
     pub fn values(&self) -> &[Rc<dyn MalType>] {
         self.value.as_slice()
-    }
-
-    pub fn is_def(&self) -> bool {
-        if self.len() == 0 {
-            return false;
-        }
-        match self[0].as_type::<MalSymbol>() {
-            Ok(symbol) => symbol.is_def(),
-            Err(_) => false,
-        }
-    }
-
-    pub fn is_let(&self) -> bool {
-        if self.len() == 0 {
-            return false;
-        }
-        match self[0].as_type::<MalSymbol>() {
-            Ok(symbol) => symbol.is_let(),
-            Err(_) => false,
-        }
     }
 }
 

@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Display};
 
 use super::MalType;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, Eq, Clone)]
 pub struct MalSymbol {
     value: String,
 }
@@ -35,12 +35,14 @@ impl MalType for MalSymbol {
     }
 }
 
-impl MalSymbol {
-    pub fn is_def(&self) -> bool {
-        self.value == "def!"
+impl PartialEq for MalSymbol {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
     }
+}
 
-    pub fn is_let(&self) -> bool {
-        self.value == "let*"
+impl PartialEq<&str> for &MalSymbol {
+    fn eq(&self, other: &&str) -> bool {
+        self.value.as_str() == *other
     }
 }
