@@ -139,7 +139,7 @@ impl Reader {
 
     pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
         lazy_static! {
-            static ref INT_RE: Regex = Regex::new("^\\d*$").unwrap();
+            static ref INT_RE: Regex = Regex::new("^-?\\d+$").unwrap();
         }
         match reader.next() {
             Some(Token::Atom(atom)) => {
