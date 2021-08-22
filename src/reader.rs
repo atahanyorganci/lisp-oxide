@@ -1,5 +1,8 @@
 use crate::{
-    types::{MalHashMap, MalInt, MalKeyword, MalList, MalString, MalSymbol, MalType, MalVec},
+    types::{
+        MalBool, MalHashMap, MalInt, MalKeyword, MalList, MalNil, MalString, MalSymbol, MalType,
+        MalVec,
+    },
     MalError, MalResult,
 };
 use lazy_static::lazy_static;
@@ -150,12 +153,18 @@ impl Reader {
                 } else if atom.starts_with(':') {
                     let word = &atom[1..];
                     Ok(Rc::from(MalKeyword::from(word.to_string())))
+                } else if atom == "true" {
+                    Ok(Rc::from(MalBool::from(true)))
+                } else if atom == "false" {
+                    Ok(Rc::from(MalBool::from(false)))
+                } else if atom == "nil" {
+                    Ok(MalNil::new())
                 } else {
                     Ok(Rc::from(MalSymbol::from(atom)))
                 }
             }
             Some(Token::String(string)) => Ok(Rc::from(MalString::from(string))),
-            _ => Err(MalError::Unimplemented),
+            _ => Err(MalError::TypeError),
         }
     }
 }

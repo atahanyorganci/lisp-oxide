@@ -4,6 +4,7 @@ use std::{
     rc::Rc,
 };
 
+pub mod boolean;
 pub mod func;
 pub mod hashmap;
 pub mod int;
@@ -14,8 +15,8 @@ pub mod symbol;
 pub mod vec;
 
 pub use crate::types::{
-    func::MalFunc, hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList,
-    string::MalString, symbol::MalSymbol, vec::MalVec,
+    boolean::MalBool, func::MalFunc, hashmap::MalHashMap, int::MalInt, keyword::MalKeyword,
+    list::MalList, string::MalString, symbol::MalSymbol, vec::MalVec,
 };
 use crate::MalError;
 
@@ -43,6 +44,16 @@ impl dyn MalType {
             Ok(vector.values())
         } else {
             Err(MalError::TypeError)
+        }
+    }
+
+    pub fn truthy(&self) -> bool {
+        if self.is::<MalNil>() {
+            return false;
+        }
+        match self.as_type::<MalBool>() {
+            Ok(boolean) => boolean.value(),
+            Err(_) => true,
         }
     }
 }
