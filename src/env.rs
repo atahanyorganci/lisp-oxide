@@ -19,7 +19,8 @@ impl Default for Env {
         env.register_func("-", &subtract);
         env.register_func("*", &multiply);
         env.register_func("/", &divide);
-        env.register_func("def!", &def);
+        env.register_func("def!", &def_fn);
+        env.register_func("let*", &let_fn);
         env
     }
 }
@@ -41,6 +42,14 @@ impl Env {
         // FIXME: Find a way to avoid allocation
         self.env.last_mut().unwrap().insert(symbol.clone(), value);
         Ok(())
+    }
+
+    pub fn push(&mut self) {
+        self.env.push(HashMap::new())
+    }
+
+    pub fn pop(&mut self) {
+        self.env.pop().unwrap();
     }
 
     fn register_func(&mut self, name: &'static str, ptr: &'static MalFuncPtr) {
@@ -74,9 +83,30 @@ pub fn divide(args: &[Rc<dyn MalType>], _env: &mut Env) -> MalResult {
     Ok(Rc::from(lhs / rhs))
 }
 
-pub fn def(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
+pub fn def_fn(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
     let symbol = args[0].clone();
     let value = eval(args[1].clone(), env)?;
     env.set(symbol, value.clone())?;
+    Ok(value)
+}
+
+pub fn let_fn(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
+    if args.len() != 2 {
+        return Err(MalError::TypeError);
+    }
+    let env_list = args[0].as_array()?;
+    if env_list.len() % 2 != 0 {
+        return Err(MalError::TypeError);
+    }
+
+    env.push();
+    let pair_count = env_list.len() / 2;
+    for i in 0..pair_count {
+        let symbol = env_list[2 * i].clone();
+        let value = eval(env_list[2 * i + 1].clone(), env)?;
+        env.set(symbol, value.clone())?;
+    }
+    let value = eval(args[1].clone(), env)?;
+    env.pop();
     Ok(value)
 }

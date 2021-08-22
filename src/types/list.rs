@@ -58,6 +58,16 @@ impl MalList {
             Err(_) => false,
         }
     }
+
+    pub fn is_let(&self) -> bool {
+        if self.len() == 0 {
+            return false;
+        }
+        match self[0].as_type::<MalSymbol>() {
+            Ok(symbol) => symbol.is_let(),
+            Err(_) => false,
+        }
+    }
 }
 
 impl MalType for MalList {

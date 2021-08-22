@@ -39,4 +39,8 @@ impl MalSymbol {
     pub fn is_def(&self) -> bool {
         self.value == "def!"
     }
+
+    pub fn is_let(&self) -> bool {
+        self.value == "let*"
+    }
 }

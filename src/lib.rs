@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use env::{def, Env};
+use env::{def_fn, let_fn, Env};
 use reader::Reader;
 use types::{MalHashMap, MalList, MalSymbol, MalType, MalVec};
 
@@ -44,7 +44,9 @@ pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> MalResult {
         if list.is_empty() {
             return Ok(ast);
         } else if list.is_def() {
-            def(&list.values()[1..], env)
+            def_fn(&list.values()[1..], env)
+        } else if list.is_let() {
+            let_fn(&list.values()[1..], env)
         } else {
             let new_list = eval_ast(ast, env)?;
             let values = new_list.as_type::<MalList>()?.values();

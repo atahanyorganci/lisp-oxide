@@ -35,6 +35,16 @@ impl dyn MalType {
     pub fn is<T: 'static>(&self) -> bool {
         self.as_any().is::<T>()
     }
+
+    pub fn as_array(&self) -> Result<&[Rc<dyn MalType>], MalError> {
+        if let Ok(list) = self.as_type::<MalList>() {
+            Ok(list.values())
+        } else if let Ok(vector) = self.as_type::<MalVec>() {
+            Ok(vector.values())
+        } else {
+            Err(MalError::TypeError)
+        }
+    }
 }
 
 pub struct MalNil {}
