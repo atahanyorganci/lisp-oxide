@@ -1,4 +1,8 @@
-use std::{any::Any, fmt::Display};
+use std::{
+    any::Any,
+    fmt::Display,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use super::MalType;
 
@@ -26,5 +30,37 @@ impl MalType for MalInt {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl Add for &MalInt {
+    type Output = MalInt;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        (self.value + rhs.value).into()
+    }
+}
+
+impl Sub for &MalInt {
+    type Output = MalInt;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        (self.value - rhs.value).into()
+    }
+}
+
+impl Mul for &MalInt {
+    type Output = MalInt;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        (self.value * rhs.value).into()
+    }
+}
+
+impl Div for &MalInt {
+    type Output = MalInt;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        (self.value / rhs.value).into()
     }
 }
