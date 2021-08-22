@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use env::{def_fn, let_fn, Env};
+use env::{def_fn, do_fn, fn_fn, if_fn, let_fn, Env};
 use reader::Reader;
-use types::{MalHashMap, MalList, MalSymbol, MalType, MalVec};
+use types::{MalClojure, MalHashMap, MalList, MalSymbol, MalType, MalVec};
 
 use crate::types::MalFunc;
 
@@ -47,10 +47,18 @@ pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> MalResult {
             def_fn(&list.values()[1..], env)
         } else if list[0].is_special("let*") {
             let_fn(&list.values()[1..], env)
+        } else if list[0].is_special("do") {
+            do_fn(&list.values()[1..], env)
+        } else if list[0].is_special("if") {
+            if_fn(&list.values()[1..], env)
+        } else if list[0].is_special("fn*") {
+            fn_fn(&list.values()[1..], env)
         } else {
             let new_list = eval_ast(ast, env)?;
             let values = new_list.as_type::<MalList>()?.values();
             if let Ok(func) = values[0].as_type::<MalFunc>() {
+                func.call(&values[1..], env)
+            } else if let Ok(func) = values[0].as_type::<MalClojure>() {
                 func.call(&values[1..], env)
             } else {
                 Err(MalError::NotCallable)

@@ -5,6 +5,7 @@ use std::{
 };
 
 pub mod boolean;
+pub mod clojure;
 pub mod func;
 pub mod hashmap;
 pub mod int;
@@ -15,8 +16,8 @@ pub mod symbol;
 pub mod vec;
 
 pub use crate::types::{
-    boolean::MalBool, func::MalFunc, hashmap::MalHashMap, int::MalInt, keyword::MalKeyword,
-    list::MalList, string::MalString, symbol::MalSymbol, vec::MalVec,
+    boolean::MalBool, clojure::MalClojure, func::MalFunc, hashmap::MalHashMap, int::MalInt,
+    keyword::MalKeyword, list::MalList, string::MalString, symbol::MalSymbol, vec::MalVec,
 };
 use crate::MalError;
 

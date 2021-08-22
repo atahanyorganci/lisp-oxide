@@ -1,8 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    eval,
-    types::{func::MalFuncPtr, MalFunc, MalInt, MalSymbol, MalType},
+    eval, eval_ast,
+    types::{func::MalFuncPtr, MalClojure, MalFunc, MalInt, MalList, MalNil, MalSymbol, MalType},
     MalError, MalResult,
 };
 
@@ -21,6 +21,8 @@ impl Default for Env {
         env.register_func("/", &divide);
         env.register_func("def!", &def_fn);
         env.register_func("let*", &let_fn);
+        env.register_func("do", &do_fn);
+        env.register_func("if", &if_fn);
         env
     }
 }
@@ -41,6 +43,24 @@ impl Env {
         let symbol = symbol.as_type::<MalSymbol>()?;
         // FIXME: Find a way to avoid allocation
         self.env.last_mut().unwrap().insert(symbol.clone(), value);
+        Ok(())
+    }
+
+    pub fn push_and_init(
+        &mut self,
+        symbols: &[Rc<dyn MalType>],
+        values: &[Rc<dyn MalType>],
+    ) -> Result<(), MalError> {
+        if symbols.len() != values.len() {
+            return Err(MalError::TypeError);
+        }
+        let mut layer = HashMap::new();
+        for (symbol, value) in symbols.iter().zip(values) {
+            let symbol: &MalSymbol = symbol.as_type()?;
+            // FIXME: Find a way to avoid allocation
+            layer.insert(symbol.clone(), value.clone());
+        }
+        self.env.push(layer);
         Ok(())
     }
 
@@ -109,4 +129,36 @@ pub fn let_fn(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
     let value = eval(args[1].clone(), env)?;
     env.pop();
     Ok(value)
+}
+
+pub fn do_fn(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
+    let mut result: Rc<dyn MalType> = MalNil::new();
+    for arg in args {
+        result = eval_ast(arg.clone(), env)?;
+    }
+    Ok(result)
+}
+
+pub fn if_fn(args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
+    if args.len() != 2 && args.len() != 3 {
+        return Err(MalError::TypeError);
+    }
+    if args[0].truthy() {
+        eval(args[1].clone(), env)
+    } else if args.len() == 3 {
+        eval(args[2].clone(), env)
+    } else {
+        Ok(MalNil::new())
+    }
+}
+
+pub fn fn_fn(args: &[Rc<dyn MalType>], _env: &mut Env) -> MalResult {
+    if args.len() != 2 {
+        return Err(MalError::TypeError);
+    }
+    let arg_names = match args[0].as_type::<MalList>() {
+        Ok(list) => list.values(),
+        Err(_) => todo!(),
+    };
+    MalClojure::try_new(arg_names, args[1].clone())
 }
