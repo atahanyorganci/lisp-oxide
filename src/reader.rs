@@ -433,12 +433,6 @@ mod tests {
         let input = String::from("atom ; This is comment");
         let reader = Reader::from(input);
         let result: Vec<_> = reader.collect();
-        assert_eq!(
-            result,
-            vec![
-                Token::Atom(String::from("atom")),
-                Token::Comment(String::from("; This is comment")),
-            ]
-        )
+        assert_eq!(result, vec![Token::Atom(String::from("atom")),])
     }
 }
