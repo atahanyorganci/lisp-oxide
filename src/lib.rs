@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use env::Env;
+use env::{def, Env};
 use reader::Reader;
 use types::{MalHashMap, MalList, MalType, MalVec};
 
@@ -19,13 +19,16 @@ pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'st
     if let Ok(list) = ast.as_type::<MalList>() {
         if list.is_empty() {
             return Ok(ast);
-        }
-        let new_list = eval_ast(ast, env)?;
-        let values = new_list.as_type::<MalList>().unwrap().values();
-        if let Ok(func) = values[0].as_type::<MalFunc>() {
-            func.call(&values[1..], env)
+        } else if list.is_def() {
+            def(&list.values()[1..], env)
         } else {
-            Err("not a function")
+            let new_list = eval_ast(ast, env)?;
+            let values = new_list.as_type::<MalList>().unwrap().values();
+            if let Ok(func) = values[0].as_type::<MalFunc>() {
+                func.call(&values[1..], env)
+            } else {
+                Err("not a function")
+            }
         }
     } else {
         eval_ast(ast, env)

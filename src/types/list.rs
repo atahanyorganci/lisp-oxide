@@ -1,6 +1,6 @@
-use std::{any::Any, fmt::Display, rc::Rc};
+use std::{any::Any, fmt::Display, ops::Index, rc::Rc};
 
-use super::MalType;
+use super::{MalSymbol, MalType};
 
 #[derive(Debug)]
 pub struct MalList {
@@ -28,6 +28,14 @@ impl Display for MalList {
     }
 }
 
+impl Index<usize> for MalList {
+    type Output = Rc<dyn MalType>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.value[index]
+    }
+}
+
 impl MalList {
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
@@ -39,6 +47,16 @@ impl MalList {
 
     pub fn values(&self) -> &[Rc<dyn MalType>] {
         self.value.as_slice()
+    }
+
+    pub fn is_def(&self) -> bool {
+        if self.len() == 0 {
+            return false;
+        }
+        match self[0].as_type::<MalSymbol>() {
+            Ok(symbol) => symbol.is_def(),
+            Err(_) => false,
+        }
     }
 }
 
