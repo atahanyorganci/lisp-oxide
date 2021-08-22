@@ -1,7 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    core::{add, divide, multiply, subtract},
+    core::{
+        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, lt, multiply, prn,
+        subtract,
+    },
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
     MalError, MalResult,
 };
@@ -19,6 +22,17 @@ impl Default for Env {
         env.register_func("-", &subtract);
         env.register_func("*", &multiply);
         env.register_func("/", &divide);
+        env.register_func("prn", &prn);
+        env.register_func("list", &list);
+        env.register_func("list?", &is_list);
+        env.register_func("empty?", &is_empty);
+        env.register_func("count", &count);
+        env.register_func("=", &equal);
+        env.register_func(">", &gt);
+        env.register_func(">=", &geq);
+        env.register_func("<", &lt);
+        env.register_func("<=", &leq);
+
         env
     }
 }
