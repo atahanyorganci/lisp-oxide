@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use env::{def, Env};
 use reader::Reader;
-use types::{MalHashMap, MalList, MalType, MalVec};
+use types::{MalHashMap, MalList, MalSymbol, MalType, MalVec};
 
 use crate::types::MalFunc;
 
@@ -10,12 +10,36 @@ pub mod env;
 pub mod reader;
 pub mod types;
 
-pub fn read(input: String) -> Result<Rc<dyn MalType>, &'static str> {
+pub type MalResult = Result<Rc<dyn MalType>, MalError>;
+
+pub enum MalError {
+    NotCallable,
+    NotFound(Rc<dyn MalType>),
+    EOF,
+    Unbalanced,
+    TypeError,
+    Unimplemented,
+}
+
+impl Display for MalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MalError::NotCallable => write!(f, "not a function"),
+            MalError::NotFound(symbol) => write!(f, "'{}' not found", symbol),
+            MalError::EOF => write!(f, "end of input"),
+            MalError::Unbalanced => write!(f, "unbalanced"),
+            MalError::TypeError => write!(f, "type error"),
+            MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
+        }
+    }
+}
+
+pub fn read(input: String) -> MalResult {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)
 }
 
-pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'static str> {
+pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> MalResult {
     if let Ok(list) = ast.as_type::<MalList>() {
         if list.is_empty() {
             return Ok(ast);
@@ -23,11 +47,11 @@ pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'st
             def(&list.values()[1..], env)
         } else {
             let new_list = eval_ast(ast, env)?;
-            let values = new_list.as_type::<MalList>().unwrap().values();
+            let values = new_list.as_type::<MalList>()?.values();
             if let Ok(func) = values[0].as_type::<MalFunc>() {
                 func.call(&values[1..], env)
             } else {
-                Err("not a function")
+                Err(MalError::NotCallable)
             }
         }
     } else {
@@ -39,10 +63,8 @@ pub fn print(input: Rc<dyn MalType>) -> String {
     format!("{}", input)
 }
 
-pub fn eval_ast(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'static str> {
-    if let Ok(symbol) = ast.as_type() {
-        env.get(symbol)
-    } else if let Ok(list) = ast.as_type::<MalList>() {
+pub fn eval_ast(ast: Rc<dyn MalType>, env: &mut Env) -> MalResult {
+    if let Ok(list) = ast.as_type::<MalList>() {
         let mut result = Vec::with_capacity(list.len());
         for item in list.values() {
             result.push(eval(item.clone(), env)?)
@@ -60,6 +82,8 @@ pub fn eval_ast(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, 
             result.insert(key.to_string(), eval(value.clone(), env)?);
         }
         Ok(Rc::from(MalHashMap::from(result)))
+    } else if ast.is::<MalSymbol>() {
+        env.get(ast)
     } else {
         Ok(ast)
     }

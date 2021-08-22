@@ -6,6 +6,8 @@ use std::{
     rc::Rc,
 };
 
+use crate::MalError;
+
 use super::{MalKeyword, MalString, MalType};
 
 #[derive(Debug)]
@@ -20,18 +22,18 @@ impl From<HashMap<String, Rc<dyn MalType>>> for MalHashMap {
 }
 
 impl TryFrom<Vec<Rc<dyn MalType>>> for MalHashMap {
-    type Error = &'static str;
+    type Error = MalError;
 
     fn try_from(value: Vec<Rc<dyn MalType>>) -> Result<Self, Self::Error> {
         if value.len() % 2 != 0 {
-            return Err("unbalanced");
+            return Err(MalError::Unbalanced);
         }
         let mut map = HashMap::new();
         let mut iter = value.into_iter();
         while let Some(item) = iter.next() {
             let id = item.as_ref().type_id();
             if id != TypeId::of::<MalString>() && id != TypeId::of::<MalKeyword>() {
-                return Err("unallowed datatype in hashmap");
+                return Err(MalError::TypeError);
             }
             let key = item.to_string();
             let value = iter.next().unwrap();

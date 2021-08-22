@@ -4,11 +4,11 @@ use std::{
     rc::Rc,
 };
 
-use crate::env::Env;
+use crate::{env::Env, MalResult};
 
 use super::MalType;
 
-pub type MalFuncPtr = dyn Fn(&[Rc<dyn MalType>], &mut Env) -> Result<Rc<dyn MalType>, &'static str>;
+pub type MalFuncPtr = dyn Fn(&[Rc<dyn MalType>], &mut Env) -> MalResult;
 
 pub struct MalFunc {
     name: &'static str,
@@ -42,11 +42,7 @@ impl MalFunc {
         Self { name, ptr }
     }
 
-    pub fn call(
-        &self,
-        args: &[Rc<dyn MalType>],
-        env: &mut Env,
-    ) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn call(&self, args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
         let func = self.ptr;
         func(args, env)
     }

@@ -1,5 +1,6 @@
-use crate::types::{
-    MalHashMap, MalInt, MalKeyword, MalList, MalString, MalSymbol, MalType, MalVec,
+use crate::{
+    types::{MalHashMap, MalInt, MalKeyword, MalList, MalString, MalSymbol, MalType, MalVec},
+    MalError, MalResult,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -40,7 +41,7 @@ impl Reader {
         self.error.is_some()
     }
 
-    pub fn read_from(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_from(reader: &mut Peekable<Self>) -> MalResult {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
@@ -51,16 +52,16 @@ impl Reader {
             | Some(Token::TildeAt) => Reader::read_quote(reader),
             Some(Token::At) => Reader::read_deref(reader),
             Some(Token::RightParen) | Some(Token::RightSquare) | Some(Token::RightCurly) => {
-                Err("unbalanced")
+                Err(MalError::Unbalanced)
             }
             Some(Token::String(_)) | Some(Token::Atom(_)) => Reader::read_atom(reader),
-            Some(Token::Caret) => Err("unimplemented"),
+            Some(Token::Caret) => Err(MalError::Unimplemented),
             Some(Token::Comment(_)) => unreachable!(),
-            None => Err("end of input"),
+            None => Err(MalError::EOF),
         }
     }
 
-    pub fn read_quote(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_quote(reader: &mut Peekable<Self>) -> MalResult {
         let token = reader.next().unwrap();
         let symbol = match token {
             Token::TildeAt | Token::Apostrophe | Token::BackTick | Token::Tilde => {
@@ -72,7 +73,7 @@ impl Reader {
         Ok(Rc::from(MalList::from(vec![symbol, quoted])))
     }
 
-    pub fn read_deref(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_deref(reader: &mut Peekable<Self>) -> MalResult {
         assert_eq!(reader.next().unwrap(), Token::At);
         let symbol: Rc<dyn MalType> = Rc::from(MalSymbol::from("deref".to_string()));
         let derefed = Reader::read_from(reader)?;
@@ -100,17 +101,17 @@ impl Reader {
         Ok(Rc::from(MalSymbol::from(symbol.to_string())))
     }
 
-    pub fn read_list(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_list(reader: &mut Peekable<Self>) -> MalResult {
         let list = Reader::read_between(reader, Token::LeftParen, Token::RightParen)?;
         Ok(Rc::from(MalList::from(list)))
     }
 
-    pub fn read_vec(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_vec(reader: &mut Peekable<Self>) -> MalResult {
         let list = Reader::read_between(reader, Token::LeftSquare, Token::RightSquare)?;
         Ok(Rc::from(MalVec::from(list)))
     }
 
-    pub fn read_hashmap(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_hashmap(reader: &mut Peekable<Self>) -> MalResult {
         let list = Reader::read_between(reader, Token::LeftCurly, Token::RightCurly)?;
         Ok(Rc::from(MalHashMap::try_from(list)?))
     }
@@ -119,7 +120,7 @@ impl Reader {
         reader: &mut Peekable<Self>,
         start: Token,
         stop: Token,
-    ) -> Result<Vec<Rc<dyn MalType>>, &'static str> {
+    ) -> Result<Vec<Rc<dyn MalType>>, MalError> {
         assert_eq!(reader.next().unwrap(), start);
         let mut list = Vec::new();
         loop {
@@ -129,7 +130,7 @@ impl Reader {
                     list.push(Reader::read_from(reader)?);
                 }
                 None => {
-                    return Err("unbalanced");
+                    return Err(MalError::Unbalanced);
                 }
             }
         }
@@ -137,7 +138,7 @@ impl Reader {
         Ok(list)
     }
 
-    pub fn read_atom(reader: &mut Peekable<Self>) -> Result<Rc<dyn MalType>, &'static str> {
+    pub fn read_atom(reader: &mut Peekable<Self>) -> MalResult {
         lazy_static! {
             static ref INT_RE: Regex = Regex::new("^-?\\d+$").unwrap();
         }
@@ -154,7 +155,7 @@ impl Reader {
                 }
             }
             Some(Token::String(string)) => Ok(Rc::from(MalString::from(string))),
-            _ => unimplemented!("Atoms and Strings are implemented"),
+            _ => Err(MalError::Unimplemented),
         }
     }
 }

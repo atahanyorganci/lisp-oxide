@@ -17,6 +17,7 @@ pub use crate::types::{
     func::MalFunc, hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList,
     string::MalString, symbol::MalSymbol, vec::MalVec,
 };
+use crate::MalError;
 
 pub trait MalType: Display + Debug + Any {
     fn as_any(&self) -> &dyn Any;
@@ -24,11 +25,15 @@ pub trait MalType: Display + Debug + Any {
 }
 
 impl dyn MalType {
-    pub fn as_type<T: 'static>(&self) -> Result<&T, ()> {
+    pub fn as_type<T: 'static>(&self) -> Result<&T, MalError> {
         match self.as_any().downcast_ref::<T>() {
             Some(int) => Ok(int),
-            None => Err(()),
+            None => Err(MalError::TypeError),
         }
+    }
+
+    pub fn is<T: 'static>(&self) -> bool {
+        self.as_any().is::<T>()
     }
 }
 

@@ -1,7 +1,7 @@
-use mal::env::Env;
+use mal::{env::Env, MalError};
 use rustyline::{error::ReadlineError, Editor};
 
-fn rep(input: String, environment: &mut Env) -> Result<String, &'static str> {
+fn rep(input: String, environment: &mut Env) -> Result<String, MalError> {
     let ast = mal::read(input)?;
     let result = mal::eval(ast, environment)?;
     Ok(mal::print(result))
