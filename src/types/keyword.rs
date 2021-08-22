@@ -27,4 +27,11 @@ impl MalType for MalKeyword {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        match rhs.as_type::<Self>() {
+            Ok(keyword) => self.value == keyword.value,
+            Err(_) => false,
+        }
+    }
 }

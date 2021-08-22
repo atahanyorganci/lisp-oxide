@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Display, ops::Index, rc::Rc};
 
-use super::MalType;
+use super::{array_equal, MalType};
 
 #[derive(Debug)]
 pub struct MalList {
@@ -57,5 +57,14 @@ impl MalType for MalList {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        let lhs = self.values();
+        let rhs = match rhs.as_array() {
+            Ok(rhs) => rhs,
+            Err(_) => return false,
+        };
+        array_equal(lhs, rhs)
     }
 }

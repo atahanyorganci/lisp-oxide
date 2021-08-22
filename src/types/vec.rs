@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Display, rc::Rc};
 
-use super::MalType;
+use super::{array_equal, MalType};
 
 #[derive(Debug)]
 pub struct MalVec {
@@ -49,6 +49,15 @@ impl MalType for MalVec {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        let lhs = self.values();
+        let rhs = match rhs.as_array() {
+            Ok(rhs) => rhs,
+            Err(_) => return false,
+        };
+        array_equal(lhs, rhs)
     }
 }
 

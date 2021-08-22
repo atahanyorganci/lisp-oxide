@@ -6,7 +6,7 @@ use std::{
 
 use super::MalType;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MalInt {
     value: i64,
 }
@@ -30,6 +30,13 @@ impl MalType for MalInt {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        match rhs.as_type::<Self>() {
+            Ok(int) => self.value == int.value,
+            Err(_) => false,
+        }
     }
 }
 

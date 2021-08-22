@@ -33,4 +33,11 @@ impl MalType for MalBool {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        match rhs.as_type::<Self>() {
+            Ok(boolean) => self.value == boolean.value,
+            Err(_) => false,
+        }
+    }
 }

@@ -33,6 +33,13 @@ impl MalType for MalSymbol {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        match rhs.as_type::<Self>() {
+            Ok(symbol) => self.value == symbol.value,
+            Err(_) => false,
+        }
+    }
 }
 
 impl PartialEq for MalSymbol {

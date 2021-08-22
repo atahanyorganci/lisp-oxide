@@ -35,6 +35,13 @@ impl MalType for MalFunc {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        match rhs.as_type::<Self>() {
+            Ok(func) => self.name == func.name,
+            Err(_) => false,
+        }
+    }
 }
 
 impl MalFunc {

@@ -24,6 +24,7 @@ use crate::MalError;
 pub trait MalType: Display + Debug + Any {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn equal(&self, rhs: &dyn MalType) -> bool;
 }
 
 impl dyn MalType {
@@ -67,6 +68,18 @@ impl dyn MalType {
     }
 }
 
+pub fn array_equal(lhs: &[Rc<dyn MalType>], rhs: &[Rc<dyn MalType>]) -> bool {
+    if lhs.len() != rhs.len() {
+        return false;
+    }
+    for (a, b) in lhs.iter().zip(rhs) {
+        if !a.equal(b.as_ref()) {
+            return false;
+        }
+    }
+    true
+}
+
 pub struct MalNil {}
 
 impl Debug for MalNil {
@@ -88,6 +101,10 @@ impl MalType for MalNil {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn equal(&self, rhs: &dyn MalType) -> bool {
+        rhs.is::<MalNil>()
     }
 }
 
