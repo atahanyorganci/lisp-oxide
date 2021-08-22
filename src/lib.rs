@@ -15,7 +15,7 @@ pub fn read(input: String) -> Result<Rc<dyn MalType>, &'static str> {
     Reader::read_from(&mut reader)
 }
 
-pub fn eval(ast: Rc<dyn MalType>, env: &Env) -> Result<Rc<dyn MalType>, &'static str> {
+pub fn eval(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'static str> {
     if let Ok(list) = ast.as_type::<MalList>() {
         if list.is_empty() {
             return Ok(ast);
@@ -36,12 +36,9 @@ pub fn print(input: Rc<dyn MalType>) -> String {
     format!("{}", input)
 }
 
-pub fn eval_ast(ast: Rc<dyn MalType>, env: &Env) -> Result<Rc<dyn MalType>, &'static str> {
+pub fn eval_ast(ast: Rc<dyn MalType>, env: &mut Env) -> Result<Rc<dyn MalType>, &'static str> {
     if let Ok(symbol) = ast.as_type() {
-        match env.lookup(symbol) {
-            Ok(value) => Ok(value),
-            Err(_) => Err("404"),
-        }
+        env.get(symbol)
     } else if let Ok(list) = ast.as_type::<MalList>() {
         let mut result = Vec::with_capacity(list.len());
         for item in list.values() {

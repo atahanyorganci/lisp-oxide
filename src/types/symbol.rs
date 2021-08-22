@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Display};
 
 use super::MalType;
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct MalSymbol {
     value: String,
 }
@@ -32,5 +32,11 @@ impl MalType for MalSymbol {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl MalSymbol {
+    pub fn is_def(&self) -> bool {
+        self.value == "def!"
     }
 }
