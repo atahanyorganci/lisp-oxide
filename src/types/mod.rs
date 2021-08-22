@@ -3,6 +3,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
+pub mod func;
 pub mod hashmap;
 pub mod int;
 pub mod keyword;
@@ -12,8 +13,8 @@ pub mod symbol;
 pub mod vec;
 
 pub use crate::types::{
-    hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList, string::MalString,
-    symbol::MalSymbol, vec::MalVec,
+    func::MalFunc, hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList,
+    string::MalString, symbol::MalSymbol, vec::MalVec,
 };
 
 pub trait MalType: Display + Debug + Any {
