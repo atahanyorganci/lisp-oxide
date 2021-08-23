@@ -116,21 +116,21 @@ pub fn let_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
         return Err(MalError::TypeError);
     }
 
-    let inner = Env::with_outer(env.clone());
+    let new_env = Env::with_outer(env.clone());
     let pair_count = env_list.len() / 2;
     for i in 0..pair_count {
         let symbol = env_list[2 * i].clone();
-        let value = eval(env_list[2 * i + 1].clone(), env.clone())?;
-        inner.set(&symbol, value.clone())?;
+        let value = eval(env_list[2 * i + 1].clone(), new_env.clone())?;
+        new_env.set(&symbol, value.clone())?;
     }
-    let value = eval(args[1].clone(), env)?;
+    let value = eval(args[1].clone(), new_env)?;
     Ok(value)
 }
 
 pub fn do_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
     let mut result: Rc<dyn MalType> = MalNil::new();
     for arg in args {
-        result = eval_ast(arg.clone(), env.clone())?;
+        result = eval(arg.clone(), env.clone())?;
     }
     Ok(result)
 }
@@ -152,9 +152,6 @@ pub fn fn_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
     if args.len() != 2 {
         return Err(MalError::TypeError);
     }
-    let arg_names = match args[0].as_type::<MalList>() {
-        Ok(list) => list.values(),
-        Err(_) => todo!(),
-    };
+    let arg_names = args[0].as_array()?;
     MalClojure::try_new(arg_names, args[1].clone(), env)
 }
