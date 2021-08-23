@@ -1,4 +1,8 @@
-use std::{any::Any, fmt::Display, rc::Rc};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 use crate::{env::Env, eval, MalError, MalResult};
 
@@ -6,8 +10,9 @@ use super::{MalSymbol, MalType};
 
 #[derive(Debug)]
 pub struct MalClojure {
-    args: Vec<Rc<dyn MalType>>,
+    arg_symbols: Vec<Rc<dyn MalType>>,
     body: Rc<dyn MalType>,
+    outer: Rc<Env>,
 }
 
 impl Display for MalClojure {
@@ -31,31 +36,31 @@ impl MalType for MalClojure {
 }
 
 impl MalClojure {
-    pub fn try_new(args: &[Rc<dyn MalType>], body: Rc<dyn MalType>) -> MalResult {
+    pub fn try_new(args: &[Rc<dyn MalType>], body: Rc<dyn MalType>, outer: Rc<Env>) -> MalResult {
         for arg in args {
             if !arg.is::<MalSymbol>() {
                 return Err(MalError::TypeError);
             }
         }
-        let args = Vec::from(args);
-        Ok(Rc::from(Self { args, body }))
+        let arg_symbols = Vec::from(args);
+        Ok(Rc::from(Self {
+            arg_symbols,
+            body,
+            outer,
+        }))
     }
 }
 
 impl MalClojure {
-    pub fn call(&self, args: &[Rc<dyn MalType>], env: &mut Env) -> MalResult {
-        if self.args.len() != args.len() {
+    pub fn call(&self, arg_exprs: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+        if self.arg_symbols.len() != arg_exprs.len() {
             return Err(MalError::TypeError);
         }
-
-        let mut values = Vec::with_capacity(args.len());
-        for arg in args {
-            values.push(eval(arg.clone(), env)?);
+        let current = Env::with_outer(self.outer.clone());
+        for (smybol, expr) in self.arg_symbols.iter().zip(arg_exprs) {
+            let value = eval(expr.clone(), env.clone())?;
+            current.set(smybol, value)?;
         }
-
-        env.push_and_init(self.args.as_slice(), values.as_slice())?;
-        let result = eval(self.body.clone(), env);
-        env.pop();
-        result
+        eval(self.body.clone(), current)
     }
 }

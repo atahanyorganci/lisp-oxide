@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     core::{
@@ -9,14 +9,17 @@ use crate::{
     MalError, MalResult,
 };
 
+#[derive(Debug)]
 pub struct Env {
-    env: Vec<HashMap<MalSymbol, Rc<dyn MalType>>>,
+    env: RefCell<HashMap<MalSymbol, Rc<dyn MalType>>>,
+    outer: Option<Rc<Env>>,
 }
 
 impl Default for Env {
     fn default() -> Self {
         let mut env = Self {
-            env: vec![HashMap::new()],
+            env: RefCell::from(HashMap::new()),
+            outer: None,
         };
         env.register_func("+", &add);
         env.register_func("-", &subtract);
@@ -40,23 +43,30 @@ impl Default for Env {
 impl Env {
     pub fn get(&self, obj: Rc<dyn MalType>) -> MalResult {
         let symbol = obj.as_type::<MalSymbol>()?;
-        for layer in self.env.iter().rev() {
-            match layer.get(symbol) {
-                Some(rc) => return Ok(rc.clone()),
-                None => {}
-            }
+        match self.get_impl(symbol) {
+            Some(value) => Ok(value),
+            None => Err(MalError::NotFound(obj.clone())),
         }
-        Err(MalError::NotFound(obj.clone()))
     }
 
-    pub fn set(&mut self, symbol: Rc<dyn MalType>, value: Rc<dyn MalType>) -> Result<(), MalError> {
+    fn get_impl(&self, symbol: &MalSymbol) -> Option<Rc<dyn MalType>> {
+        match self.env.borrow().get(symbol) {
+            Some(value) => Some(value.clone()),
+            None => match &self.outer {
+                Some(outer) => outer.get_impl(symbol),
+                None => None,
+            },
+        }
+    }
+
+    pub fn set(&self, symbol: &Rc<dyn MalType>, value: Rc<dyn MalType>) -> Result<(), MalError> {
         let symbol = symbol.as_type::<MalSymbol>()?;
         // FIXME: Find a way to avoid allocation
-        self.env.last_mut().unwrap().insert(symbol.clone(), value);
+        self.env.borrow_mut().insert(symbol.clone(), value);
         Ok(())
     }
 
-    pub fn push_and_init(
+    pub fn init(
         &mut self,
         symbols: &[Rc<dyn MalType>],
         values: &[Rc<dyn MalType>],
@@ -64,27 +74,24 @@ impl Env {
         if symbols.len() != values.len() {
             return Err(MalError::TypeError);
         }
-        let mut layer = HashMap::new();
         for (symbol, value) in symbols.iter().zip(values) {
             let symbol: &MalSymbol = symbol.as_type()?;
             // FIXME: Find a way to avoid allocation
-            layer.insert(symbol.clone(), value.clone());
+            self.env.borrow_mut().insert(symbol.clone(), value.clone());
         }
-        self.env.push(layer);
         Ok(())
-    }
-
-    pub fn push(&mut self) {
-        self.env.push(HashMap::new())
-    }
-
-    pub fn pop(&mut self) {
-        self.env.pop().unwrap();
     }
 
     fn register_func(&mut self, name: &'static str, ptr: &'static MalFuncPtr) {
         let symbol = MalSymbol::from(name);
         let func = Rc::from(MalFunc::new(name, ptr));
-        self.env.last_mut().unwrap().insert(symbol, func);
+        self.env.borrow_mut().insert(symbol, func);
+    }
+
+    pub fn with_outer(outer: Rc<Self>) -> Rc<Self> {
+        Rc::from(Self {
+            env: RefCell::from(HashMap::new()),
+            outer: Some(outer),
+        })
     }
 }
