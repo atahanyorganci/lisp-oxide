@@ -3,7 +3,6 @@ use std::{borrow::Cow, fmt::Write, rc::Rc};
 use mal::{
     env::Env,
     reader::{AtomKind, Reader, Token, Tokenizer},
-    MalError,
 };
 use rustyline::{
     completion::Completer,
@@ -13,12 +12,6 @@ use rustyline::{
     validate::{ValidationContext, ValidationResult, Validator},
     Config, Editor, Helper,
 };
-
-fn rep(input: &str, environment: Rc<Env>) -> Result<String, MalError> {
-    let ast = mal::read(input)?;
-    let result = mal::eval(ast, environment)?;
-    Ok(mal::print(result))
-}
 
 pub struct MalHelper {
     env: Rc<Env>,
@@ -174,14 +167,14 @@ impl Helper for MalHelper {}
 fn main() {
     let config = Config::builder().auto_add_history(true).build();
     let mut editor = Editor::<MalHelper>::with_config(config);
-    let env = Rc::from(Env::default());
+    let env = Env::new();
 
     editor.set_helper(Some(MalHelper::from(env.clone())));
 
     loop {
         let readline = editor.readline("user> ");
         match readline {
-            Ok(line) => match rep(line.as_str(), env.clone()) {
+            Ok(line) => match mal::rep(line.as_str(), env.clone()) {
                 Ok(result) => println!("{}", result),
                 Err(err) => eprintln!("{}", err),
             },

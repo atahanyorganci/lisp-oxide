@@ -35,6 +35,12 @@ impl Display for MalError {
     }
 }
 
+pub fn rep(input: &str, environment: Rc<Env>) -> Result<String, MalError> {
+    let ast = read(input)?;
+    let result = eval(ast, environment)?;
+    Ok(print(result))
+}
+
 pub fn read(input: &str) -> MalResult {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)

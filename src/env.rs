@@ -5,6 +5,7 @@ use crate::{
         add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, lt, multiply, prn,
         subtract,
     },
+    rep,
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
     MalError, MalResult,
 };
@@ -17,10 +18,16 @@ pub struct Env {
 
 impl Default for Env {
     fn default() -> Self {
-        let mut env = Self {
+        Self {
             env: RefCell::from(HashMap::new()),
             outer: None,
-        };
+        }
+    }
+}
+
+impl Env {
+    pub fn new() -> Rc<Self> {
+        let env = Rc::from(Self::default());
         env.register_func("+", &add);
         env.register_func("-", &subtract);
         env.register_func("*", &multiply);
@@ -36,11 +43,12 @@ impl Default for Env {
         env.register_func("<", &lt);
         env.register_func("<=", &leq);
 
-        env
+        match rep("(def! not (fn* (a) (if a false true)))", env.clone()) {
+            Ok(_) => env,
+            Err(_) => unreachable!(),
+        }
     }
-}
 
-impl Env {
     pub fn get(&self, obj: Rc<dyn MalType>) -> MalResult {
         let symbol = obj.as_type::<MalSymbol>()?;
         match self.get_impl(symbol) {
@@ -82,7 +90,7 @@ impl Env {
         Ok(())
     }
 
-    fn register_func(&mut self, name: &'static str, ptr: &'static MalFuncPtr) {
+    fn register_func(&self, name: &'static str, ptr: &'static MalFuncPtr) {
         let symbol = MalSymbol::from(name);
         let func = Rc::from(MalFunc::new(name, ptr));
         self.env.borrow_mut().insert(symbol, func);
