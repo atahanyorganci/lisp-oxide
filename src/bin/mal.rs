@@ -129,7 +129,7 @@ impl Validator for MalHelper {
                 Token::LeftSquare => square += 1,
                 Token::RightSquare => square -= 1,
                 Token::LeftCurly => curly += 1,
-                Token::RightCurly => curly += 1,
+                Token::RightCurly => curly -= 1,
                 Token::LeftParen => paren += 1,
                 Token::RightParen => paren -= 1,
                 Token::TildeAt
