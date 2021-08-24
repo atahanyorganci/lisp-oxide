@@ -6,7 +6,7 @@ use std::{
 
 use crate::{env::Env, eval, MalError, MalResult};
 
-use super::{MalSymbol, MalType};
+use super::{MalList, MalSymbol, MalType};
 
 #[derive(Debug)]
 pub struct MalClojure {
@@ -53,14 +53,39 @@ impl MalClojure {
 
 impl MalClojure {
     pub fn call(&self, arg_exprs: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
-        if self.arg_symbols.len() != arg_exprs.len() {
-            return Err(MalError::TypeError);
-        }
         let current = Env::with_outer(self.outer.clone());
-        for (smybol, expr) in self.arg_symbols.iter().zip(arg_exprs) {
-            let value = eval(expr.clone(), env.clone())?;
-            current.set(smybol, value)?;
+
+        for i in 0..self.arg_symbols.len() {
+            let symbol = match self.arg_symbols.get(i) {
+                Some(symbol) => symbol,
+                None => return Err(MalError::TypeError),
+            };
+            if symbol.as_type::<MalSymbol>()? == "&" {
+                // If current symbol is `&` then next symbol should capture rest of expressions as list
+                let symbol = match self.arg_symbols.get(i + 1) {
+                    Some(symbol) => symbol,
+                    None => return Err(MalError::TypeError),
+                };
+                let value = MalClojure::eval_slice(&arg_exprs[i..], env.clone())?;
+                current.set(symbol, value)?;
+                break;
+            } else {
+                let expr = match arg_exprs.get(i) {
+                    Some(expr) => expr,
+                    None => return Err(MalError::TypeError),
+                };
+                let value = eval(expr.clone(), env.clone())?;
+                current.set(symbol, value)?;
+            }
         }
         eval(self.body.clone(), current)
+    }
+
+    fn eval_slice(slice: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+        let mut vector = Vec::with_capacity(slice.len());
+        for expr in slice {
+            vector.push(eval(expr.clone(), env.clone())?);
+        }
+        Ok(Rc::from(MalList::from(vector)))
     }
 }
