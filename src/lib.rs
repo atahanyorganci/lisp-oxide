@@ -35,7 +35,7 @@ impl Display for MalError {
     }
 }
 
-pub fn read(input: String) -> MalResult {
+pub fn read(input: &str) -> MalResult {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)
 }

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use mal::{env::Env, MalError};
 use rustyline::{error::ReadlineError, Editor};
 
-fn rep(input: String, environment: Rc<Env>) -> Result<String, MalError> {
+fn rep(input: &str, environment: Rc<Env>) -> Result<String, MalError> {
     let ast = mal::read(input)?;
     let result = mal::eval(ast, environment)?;
     Ok(mal::print(result))
@@ -17,7 +17,7 @@ fn main() {
         match readline {
             Ok(line) => {
                 editor.add_history_entry(&line);
-                match rep(line, env.clone()) {
+                match rep(line.as_str(), env.clone()) {
                     Ok(result) => println!("{}", result),
                     Err(err) => eprintln!("{}", err),
                 }

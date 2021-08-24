@@ -7,44 +7,69 @@ use crate::{
 };
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{convert::TryFrom, iter::Peekable, rc::Rc, str::FromStr};
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt::Display,
+    iter::Peekable,
+    rc::Rc,
+    str::FromStr,
+};
 
 #[derive(Debug)]
-pub struct Reader {
-    input: String,
-    index: usize,
-    error: Option<TokenizationError>,
+pub struct Reader<'a> {
+    tokenizer: Tokenizer<'a>,
 }
 
-impl From<String> for Reader {
-    fn from(input: String) -> Self {
-        Reader {
-            input,
-            index: 0,
-            error: None,
+impl<'a> From<&'a str> for Reader<'a> {
+    fn from(input: &'a str) -> Self {
+        let tokenizer = Tokenizer::from(input);
+        Self { tokenizer }
+    }
+}
+
+impl Iterator for Reader<'_> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.tokenizer.next() {
+            Some(full_token) => {
+                let token = full_token.into();
+                match token {
+                    Token::TildeAt
+                    | Token::LeftSquare
+                    | Token::RightSquare
+                    | Token::LeftCurly
+                    | Token::RightCurly
+                    | Token::LeftParen
+                    | Token::RightParen
+                    | Token::Apostrophe
+                    | Token::BackTick
+                    | Token::Tilde
+                    | Token::Caret
+                    | Token::At
+                    | Token::String(_)
+                    | Token::Atom(_) => Some(token),
+                    Token::Comment(_)
+                    | Token::IncompleteString(_)
+                    | Token::Space
+                    | Token::Newline
+                    | Token::CarriageReturn
+                    | Token::Tab
+                    | Token::Comma
+                    | Token::IncompleteEmptyString => self.next(),
+                }
+            }
+            None => None,
         }
     }
 }
 
-impl FromStr for Reader {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let input = s.into();
-        Ok(Reader {
-            input,
-            index: 0,
-            error: None,
-        })
-    }
-}
-
-impl Reader {
+impl Reader<'_> {
     pub fn is_err(&self) -> bool {
-        self.error.is_some()
+        self.tokenizer.error.is_some()
     }
 
-    pub fn read_from(reader: &mut Peekable<Self>) -> MalResult {
+    pub fn read_from<'a>(reader: &mut Peekable<Self>) -> MalResult {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
@@ -59,8 +84,15 @@ impl Reader {
             }
             Some(Token::String(_)) | Some(Token::Atom(_)) => Reader::read_atom(reader),
             Some(Token::Caret) => Err(MalError::Unimplemented),
-            Some(Token::Comment(_)) => unreachable!(),
             None => Err(MalError::EOF),
+            Some(Token::Comment(_))
+            | Some(Token::IncompleteString(_))
+            | Some(Token::Space)
+            | Some(Token::Newline)
+            | Some(Token::CarriageReturn)
+            | Some(Token::Tab)
+            | Some(Token::Comma)
+            | Some(Token::IncompleteEmptyString) => unreachable!(),
         }
     }
 
@@ -68,7 +100,7 @@ impl Reader {
         let token = reader.next().unwrap();
         let symbol = match token {
             Token::TildeAt | Token::Apostrophe | Token::BackTick | Token::Tilde => {
-                Reader::map_token_to_symbol(token).unwrap()
+                token.try_into().unwrap()
             }
             _ => panic!("Invalid token: {:?}", token),
         };
@@ -81,27 +113,6 @@ impl Reader {
         let symbol: Rc<dyn MalType> = Rc::from(MalSymbol::from("deref".to_string()));
         let derefed = Reader::read_from(reader)?;
         Ok(Rc::from(MalList::from(vec![symbol, derefed])))
-    }
-
-    fn map_token_to_symbol(token: Token) -> Result<Rc<dyn MalType>, ()> {
-        let symbol = match token {
-            Token::TildeAt => "splice-unquote",
-            Token::Apostrophe => "quote",
-            Token::BackTick => "quasiquote",
-            Token::Tilde => "unquote",
-            Token::Caret => "with-meta",
-            Token::At => "deref",
-            Token::LeftSquare
-            | Token::RightSquare
-            | Token::LeftCurly
-            | Token::RightCurly
-            | Token::LeftParen
-            | Token::RightParen
-            | Token::String(_)
-            | Token::Comment(_)
-            | Token::Atom(_) => return Err(()),
-        };
-        Ok(Rc::from(MalSymbol::from(symbol.to_string())))
     }
 
     pub fn read_list(reader: &mut Peekable<Self>) -> MalResult {
@@ -169,6 +180,23 @@ impl Reader {
     }
 }
 
+#[derive(Debug)]
+pub struct Tokenizer<'a> {
+    input: &'a str,
+    index: usize,
+    error: Option<TokenizationError>,
+}
+
+impl<'a> From<&'a str> for Tokenizer<'a> {
+    fn from(input: &'a str) -> Self {
+        Tokenizer {
+            input,
+            index: 0,
+            error: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum TokenizationError {
     UnbalancedString,
@@ -188,9 +216,99 @@ pub enum Token {
     Tilde,
     Caret,
     At,
+    IncompleteString(String),
+    Space,
+    Newline,
+    CarriageReturn,
+    Tab,
+    Comma,
+    IncompleteEmptyString,
     String(String),
     Comment(String),
     Atom(String),
+}
+
+impl TryInto<Rc<dyn MalType>> for Token {
+    type Error = ();
+
+    fn try_into(self) -> Result<Rc<dyn MalType>, Self::Error> {
+        let symbol = match self {
+            Token::TildeAt => "splice-unquote",
+            Token::Apostrophe => "quote",
+            Token::BackTick => "quasiquote",
+            Token::Tilde => "unquote",
+            Token::Caret => "with-meta",
+            Token::At => "deref",
+            Token::LeftSquare
+            | Token::RightSquare
+            | Token::LeftCurly
+            | Token::RightCurly
+            | Token::LeftParen
+            | Token::RightParen
+            | Token::String(_)
+            | Token::Atom(_) => return Err(()),
+            Token::Comment(_)
+            | Token::IncompleteString(_)
+            | Token::Space
+            | Token::Newline
+            | Token::CarriageReturn
+            | Token::Tab
+            | Token::Comma
+            | Token::IncompleteEmptyString => unreachable!(),
+        };
+        Ok(Rc::from(MalSymbol::from(symbol.to_string())))
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FullToken {
+    token: Token,
+    start: usize,
+    stop: usize,
+}
+
+impl Into<Token> for FullToken {
+    fn into(self) -> Token {
+        self.token
+    }
+}
+
+impl FullToken {
+    pub fn new(token: Token, start: usize, stop: usize) -> Self {
+        Self { token, start, stop }
+    }
+
+    pub fn as_token(&self) -> &Token {
+        &self.token
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::TildeAt => write!(f, "~@"),
+            Token::LeftSquare => write!(f, "["),
+            Token::RightSquare => write!(f, "]"),
+            Token::LeftCurly => write!(f, "{{"),
+            Token::RightCurly => write!(f, "}}"),
+            Token::LeftParen => write!(f, "("),
+            Token::RightParen => write!(f, ")"),
+            Token::Apostrophe => write!(f, "'"),
+            Token::BackTick => write!(f, "`"),
+            Token::Tilde => write!(f, "~"),
+            Token::Caret => write!(f, "^"),
+            Token::At => write!(f, "@"),
+            Token::String(string) => write!(f, "\"{}\"", string),
+            Token::Comment(comment) => write!(f, ";{}", comment),
+            Token::Atom(atom) => write!(f, "{}", atom),
+            Token::IncompleteString(string) => write!(f, "\"{}", string),
+            Token::IncompleteEmptyString => write!(f, "\""),
+            Token::Space => write!(f, " "),
+            Token::Newline => write!(f, "\n"),
+            Token::CarriageReturn => write!(f, "\r"),
+            Token::Tab => write!(f, "\t"),
+            Token::Comma => write!(f, ","),
+        }
+    }
 }
 
 pub fn is_special_char(ch: char) -> bool {
@@ -201,73 +319,91 @@ pub fn is_special_char(ch: char) -> bool {
     }
 }
 
-impl Iterator for Reader {
-    type Item = Token;
+impl Iterator for Tokenizer<'_> {
+    type Item = FullToken;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
+        let start = self.index;
+        let token = loop {
             let nth = self.input.chars().nth(self.index);
 
             match nth {
-                Some(c) if c.is_whitespace() || c == ',' => {
+                Some(',') => {
                     self.index += 1;
+                    break Token::Comma;
+                }
+                Some(' ') => {
+                    self.index += 1;
+                    break Token::Space;
+                }
+                Some('\n') => {
+                    self.index += 1;
+                    break Token::Newline;
+                }
+                Some('\r') => {
+                    self.index += 1;
+                    break Token::CarriageReturn;
+                }
+                Some('\t') => {
+                    self.index += 1;
+                    break Token::Tab;
                 }
                 Some('~') => {
                     let peeked = self.input.chars().nth(self.index + 1);
                     match peeked {
                         Some('@') => {
                             self.index += 2;
-                            break Some(Token::TildeAt);
+                            break Token::TildeAt;
                         }
                         Some(_) => {
                             self.index += 1;
-                            break Some(Token::Tilde);
+                            break Token::Tilde;
                         }
                         None => {
                             self.index += 1;
-                            break Some(Token::Tilde);
+                            break Token::Tilde;
                         }
                     }
                 }
                 Some('[') => {
                     self.index += 1;
-                    break Some(Token::LeftSquare);
+                    break Token::LeftSquare;
                 }
                 Some(']') => {
                     self.index += 1;
-                    break Some(Token::RightSquare);
+                    break Token::RightSquare;
                 }
                 Some('{') => {
                     self.index += 1;
-                    break Some(Token::LeftCurly);
+                    break Token::LeftCurly;
                 }
                 Some('}') => {
                     self.index += 1;
-                    break Some(Token::RightCurly);
+                    break Token::RightCurly;
                 }
                 Some('(') => {
                     self.index += 1;
-                    break Some(Token::LeftParen);
+                    break Token::LeftParen;
                 }
                 Some(')') => {
                     self.index += 1;
-                    break Some(Token::RightParen);
+                    break Token::RightParen;
                 }
                 Some('\'') => {
                     self.index += 1;
-                    break Some(Token::Apostrophe);
+                    break Token::Apostrophe;
                 }
                 Some('`') => {
                     self.index += 1;
-                    break Some(Token::BackTick);
+                    break Token::BackTick;
                 }
                 Some('^') => {
                     self.index += 1;
-                    break Some(Token::Caret);
+                    break Token::Caret;
                 }
                 Some('@') => {
                     self.index += 1;
-                    break Some(Token::At);
+                    break Token::At;
                 }
                 Some('"') => {
                     self.index += 1;
@@ -275,18 +411,23 @@ impl Iterator for Reader {
                     let mut remaining = match self.input.get(self.index..) {
                         Some(s) if s.is_empty() => {
                             self.error = Some(TokenizationError::UnbalancedString);
-                            return None;
+                            break Token::IncompleteEmptyString;
                         }
                         Some(s) => s.chars().peekable(),
                         None => unreachable!("Empty &str should have been returned!"),
                     };
-                    let mut string = String::new();
 
-                    while let Some(ch) = remaining.next() {
+                    let mut string = String::new();
+                    let string_token = loop {
+                        let ch = match remaining.next() {
+                            Some(ch) => ch,
+                            None => break Token::IncompleteString(string),
+                        };
+
                         self.index += 1;
                         match ch {
                             '"' => {
-                                return Some(Token::String(string));
+                                break Token::String(string);
                             }
                             '\\' => match remaining.peek() {
                                 Some('"') => {
@@ -305,13 +446,18 @@ impl Iterator for Reader {
                                     self.index += 1;
                                 }
                                 Some(_) => string.push('\\'),
-                                None => break,
+                                None => {
+                                    break Token::IncompleteString(string);
+                                }
                             },
                             _ => string.push(ch),
                         }
+                    };
+
+                    if let Token::IncompleteString(_) = string_token {
+                        self.error = Some(TokenizationError::UnbalancedString);
                     }
-                    self.error = Some(TokenizationError::UnbalancedString);
-                    return None;
+                    break string_token;
                 }
                 Some(';') => {
                     let chars = self.input.get(self.index..).unwrap().chars();
@@ -324,8 +470,7 @@ impl Iterator for Reader {
                             break;
                         }
                     }
-                    let _comment = Token::Comment(result);
-                    break self.next();
+                    break Token::Comment(result);
                 }
                 Some(_) => {
                     let chars = self.input.get(self.index..).unwrap().chars();
@@ -338,11 +483,12 @@ impl Iterator for Reader {
                             break;
                         }
                     }
-                    break Some(Token::Atom(result));
+                    break Token::Atom(result);
                 }
-                None => break None,
+                None => return None,
             }
-        }
+        };
+        Some(FullToken::new(token, start, self.index))
     }
 }
 
@@ -352,16 +498,14 @@ mod tests {
 
     #[test]
     fn dont_tokenize_whitespace_and_commas() {
-        let input = String::from(" \t\r\n,");
-        let reader = Reader::from(input);
+        let reader = Reader::from(" \t\r\n,");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![])
     }
 
     #[test]
     fn tokenize_special_characters() {
-        let input = String::from("[]{}()'`~^@~@");
-        let reader = Reader::from(input);
+        let reader = Reader::from("[]{}()'`~^@~@");
         let result: Vec<_> = reader.collect();
         assert_eq!(
             result,
@@ -384,8 +528,7 @@ mod tests {
 
     #[test]
     fn tokenize_strings() {
-        let input = String::from("\"one\" \"two\" \"three\"");
-        let reader = Reader::from(input);
+        let reader = Reader::from("\"one\" \"two\" \"three\"");
         let result: Vec<_> = reader.collect();
         assert_eq!(
             result,
@@ -399,8 +542,7 @@ mod tests {
 
     #[test]
     fn tokenize_strings_with_escape_sequences() {
-        let input = String::from(r#"backslash "\\" double-quote "\"" newline "\n" "#);
-        let reader = Reader::from(input);
+        let reader = Reader::from(r#"backslash "\\" double-quote "\"" newline "\n" "#);
         let result: Vec<_> = reader.collect();
         assert_eq!(
             result,
@@ -417,16 +559,14 @@ mod tests {
 
     #[test]
     fn dont_tokenize_unbalanced_strings() {
-        let input = String::from("\"unbalanced\" \"strings");
-        let reader = Reader::from(input);
+        let reader = Reader::from("\"unbalanced\" \"strings");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![Token::String(String::from("unbalanced")),]);
     }
 
     #[test]
     fn tokenize_symbols() {
-        let input = String::from("first second third");
-        let reader = Reader::from(input);
+        let reader = Reader::from("first second third");
         let result: Vec<_> = reader.collect();
         assert_eq!(
             result,
@@ -440,8 +580,7 @@ mod tests {
 
     #[test]
     fn tokenize_comments() {
-        let input = String::from("atom ; This is comment");
-        let reader = Reader::from(input);
+        let reader = Reader::from("atom ; This is comment");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![Token::Atom(String::from("atom")),])
     }

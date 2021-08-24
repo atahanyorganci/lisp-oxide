@@ -3,7 +3,7 @@ use std::rc::Rc;
 use mal::{reader::Reader, types::MalType, MalError, MalResult};
 use rustyline::{error::ReadlineError, Editor};
 
-fn read(input: String) -> MalResult {
+fn read(input: &str) -> MalResult {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)
 }
@@ -16,7 +16,7 @@ fn print(input: Rc<dyn MalType>) -> String {
     format!("{}", input)
 }
 
-fn rep(input: String) -> Result<String, MalError> {
+fn rep(input: &str) -> Result<String, MalError> {
     let ast = read(input)?;
     let result = eval(ast)?;
     Ok(print(result))
@@ -29,7 +29,7 @@ fn main() {
         match readline {
             Ok(line) => {
                 editor.add_history_entry(&line);
-                match rep(line) {
+                match rep(line.as_str()) {
                     Ok(result) => println!("{}", result),
                     Err(err) => eprintln!("{}", err),
                 }
