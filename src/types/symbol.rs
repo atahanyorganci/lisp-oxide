@@ -19,6 +19,12 @@ impl From<&str> for MalSymbol {
     }
 }
 
+impl MalSymbol {
+    pub fn starts_with(&self, start: &str) -> bool {
+        self.value.starts_with(start)
+    }
+}
+
 impl Display for MalSymbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value)

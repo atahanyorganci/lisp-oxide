@@ -15,6 +15,38 @@ use std::{
     str::FromStr,
 };
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AtomKind {
+    Bool,
+    Keyword,
+    Symbol,
+    Nil,
+    Int,
+    Builtin,
+}
+
+impl From<&str> for AtomKind {
+    fn from(atom: &str) -> Self {
+        lazy_static! {
+            static ref INT_RE: Regex = Regex::new("^-?\\d+$").unwrap();
+        }
+        if INT_RE.is_match_at(&atom, 0) {
+            AtomKind::Int
+        } else if atom.starts_with(':') {
+            AtomKind::Keyword
+        } else if atom == "true" || atom == "false" {
+            AtomKind::Bool
+        } else if atom == "nil" {
+            AtomKind::Nil
+        } else {
+            match atom {
+                "def!" | "let*" | "do" | "if" | "fn*" => AtomKind::Builtin,
+                _ => AtomKind::Symbol,
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Reader<'a> {
     tokenizer: Tokenizer<'a>,
@@ -262,8 +294,8 @@ impl TryInto<Rc<dyn MalType>> for Token {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FullToken {
     token: Token,
-    start: usize,
-    stop: usize,
+    pub start: usize,
+    pub stop: usize,
 }
 
 impl Into<Token> for FullToken {

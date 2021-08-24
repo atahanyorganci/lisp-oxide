@@ -94,4 +94,13 @@ impl Env {
             outer: Some(outer),
         })
     }
+
+    pub fn starts_with(&self, start: &str) -> Vec<String> {
+        self.env
+            .borrow()
+            .keys()
+            .filter(|symbol| symbol.starts_with(start))
+            .map(|symbol| symbol.to_string())
+            .collect()
+    }
 }
