@@ -57,7 +57,11 @@ impl MalClojure {
 }
 
 impl MalClojure {
-    pub fn call(&self, arg_exprs: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+    pub fn call(
+        &self,
+        arg_exprs: &[Rc<dyn MalType>],
+        env: Rc<Env>,
+    ) -> Result<(Rc<dyn MalType>, Rc<Env>), MalError> {
         let current = Env::with_outer(self.outer.clone());
 
         for i in 0..self.arg_symbols.len() {
@@ -83,7 +87,7 @@ impl MalClojure {
                 current.set(symbol, value)?;
             }
         }
-        eval(self.body.clone(), current)
+        Ok((self.body.clone(), current))
     }
 
     fn eval_slice(slice: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
