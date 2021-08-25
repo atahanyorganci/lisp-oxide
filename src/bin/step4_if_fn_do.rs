@@ -9,7 +9,7 @@ fn main() {
     loop {
         let readline = editor.readline("user> ");
         match readline {
-            Ok(line) => match mal::rep(line.as_str(), env.clone()) {
+            Ok(line) => match mal::rep(line.as_str(), &env) {
                 Ok(result) => println!("{}", result),
                 Err(err) => eprintln!("{}", err),
             },

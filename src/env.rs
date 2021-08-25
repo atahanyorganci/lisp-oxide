@@ -51,7 +51,7 @@ impl Env {
         env.register_func("str", &str_fn);
         env.register_func("println", &println_fn);
 
-        match rep("(def! not (fn* (a) (if a false true)))", env.clone()) {
+        match rep("(def! not (fn* (a) (if a false true)))", &env) {
             Ok(_) => env,
             Err(_) => unreachable!(),
         }

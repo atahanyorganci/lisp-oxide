@@ -35,9 +35,9 @@ impl Display for MalError {
     }
 }
 
-pub fn rep(input: &str, env: Rc<Env>) -> Result<String, MalError> {
+pub fn rep(input: &str, env: &Rc<Env>) -> Result<String, MalError> {
     let ast = read(input)?;
-    let result = eval(ast, &env)?;
+    let result = eval(ast, env)?;
     Ok(print(result))
 }
 
