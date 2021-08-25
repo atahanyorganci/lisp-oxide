@@ -57,7 +57,7 @@ pub fn list(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
 }
 
 pub fn is_list(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
-    Ok(Rc::from(MalBool::from(args[0].as_array().is_ok())))
+    Ok(Rc::from(MalBool::from(args[0].is::<MalList>())))
 }
 
 pub fn is_empty(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
