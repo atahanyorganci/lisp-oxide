@@ -60,7 +60,7 @@ impl MalClojure {
     pub fn call(
         &self,
         arg_exprs: &[Rc<dyn MalType>],
-        env: Rc<Env>,
+        env: &Rc<Env>,
     ) -> Result<(Rc<dyn MalType>, Rc<Env>), MalError> {
         let current = Env::with_outer(self.outer.clone());
 
@@ -75,7 +75,7 @@ impl MalClojure {
                     Some(symbol) => symbol,
                     None => return Err(MalError::TypeError),
                 };
-                let value = MalClojure::eval_slice(&arg_exprs[i..], env.clone())?;
+                let value = MalClojure::eval_slice(&arg_exprs[i..], env)?;
                 current.set(symbol, value)?;
                 break;
             } else {
@@ -83,17 +83,17 @@ impl MalClojure {
                     Some(expr) => expr,
                     None => return Err(MalError::TypeError),
                 };
-                let value = eval(expr.clone(), env.clone())?;
+                let value = eval(expr.clone(), env)?;
                 current.set(symbol, value)?;
             }
         }
         Ok((self.body.clone(), current))
     }
 
-    fn eval_slice(slice: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+    fn eval_slice(slice: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
         let mut vector = Vec::with_capacity(slice.len());
         for expr in slice {
-            vector.push(eval(expr.clone(), env.clone())?);
+            vector.push(eval(expr.clone(), env)?);
         }
         Ok(Rc::from(MalList::from(vector)))
     }

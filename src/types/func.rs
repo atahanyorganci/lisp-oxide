@@ -8,7 +8,7 @@ use crate::{env::Env, MalResult};
 
 use super::MalType;
 
-pub type MalFuncPtr = dyn Fn(&[Rc<dyn MalType>], Rc<Env>) -> MalResult;
+pub type MalFuncPtr = dyn Fn(&[Rc<dyn MalType>], &Rc<Env>) -> MalResult;
 
 pub struct MalFunc {
     name: &'static str,
@@ -49,7 +49,7 @@ impl MalFunc {
         Self { name, ptr }
     }
 
-    pub fn call(&self, args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+    pub fn call(&self, args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
         let func = self.ptr;
         func(args, env)
     }

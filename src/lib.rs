@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, mem::MaybeUninit, rc::Rc};
 
 use env::Env;
 use reader::Reader;
@@ -37,7 +37,7 @@ impl Display for MalError {
 
 pub fn rep(input: &str, env: Rc<Env>) -> Result<String, MalError> {
     let ast = read(input)?;
-    let result = eval(ast, env)?;
+    let result = eval(ast, &env)?;
     Ok(print(result))
 }
 
@@ -46,63 +46,80 @@ pub fn read(input: &str) -> MalResult {
     Reader::read_from(&mut reader)
 }
 
-pub fn eval(mut ast: Rc<dyn MalType>, mut env: Rc<Env>) -> MalResult {
-    loop {
+pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
+    let mut init = false;
+    let mut outer: MaybeUninit<Rc<Env>> = MaybeUninit::uninit();
+    let result = loop {
         if let Ok(list) = ast.as_type::<MalList>() {
             if list.is_empty() {
                 break Ok(ast);
             } else if list[0].is_special("def!") {
                 break def_fn(&list.values()[1..], env);
             } else if list[0].is_special("let*") {
-                let (new_ast, new_env) = let_fn(&list.values()[1..], env.clone())?;
+                let (new_ast, new_env) = let_fn(&list.values()[1..], env)?;
                 ast = new_ast;
-                env = new_env;
+                unsafe {
+                    init = true;
+                    outer.as_mut_ptr().write(new_env);
+                    env = &*outer.as_ptr();
+                }
             } else if list[0].is_special("do") {
-                ast = do_fn(&list.values()[1..], env.clone())?;
+                ast = do_fn(&list.values()[1..], env)?;
             } else if list[0].is_special("if") {
-                ast = if_fn(&list.values()[1..], env.clone())?;
+                ast = if_fn(&list.values()[1..], env)?;
             } else if list[0].is_special("fn*") {
                 break fn_fn(&list.values()[1..], env);
             } else {
-                let new_list = eval_ast(ast, env.clone())?;
+                let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
                 if let Ok(func) = values[0].as_type::<MalFunc>() {
                     break func.call(&values[1..], env);
                 } else if let Ok(clojure) = values[0].as_type::<MalClojure>() {
                     let (new_ast, new_env) = clojure.call(&values[1..], env)?;
                     ast = new_ast;
-                    env = new_env;
+                    unsafe {
+                        init = true;
+                        outer.as_mut_ptr().write(new_env);
+                        env = &*outer.as_ptr();
+                    }
                 } else {
                     break Err(MalError::NotCallable);
                 }
             }
         } else {
-            break eval_ast(ast, env);
+            break eval_ast(ast, &env);
+        }
+    };
+    if init {
+        unsafe {
+            let env = outer.assume_init();
+            drop(env);
         }
     }
+    result
 }
 
 pub fn print(input: Rc<dyn MalType>) -> String {
     format!("{:?}", input)
 }
 
-pub fn eval_ast(ast: Rc<dyn MalType>, env: Rc<Env>) -> MalResult {
+pub fn eval_ast(ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     if let Ok(list) = ast.as_type::<MalList>() {
         let mut result = Vec::with_capacity(list.len());
         for item in list.values() {
-            result.push(eval(item.clone(), env.clone())?)
+            result.push(eval(item.clone(), env)?)
         }
         Ok(Rc::from(MalList::from(result)))
     } else if let Ok(vec) = ast.as_type::<MalVec>() {
         let mut result = Vec::with_capacity(vec.len());
         for item in vec.values() {
-            result.push(eval(item.clone(), env.clone())?)
+            result.push(eval(item.clone(), env)?)
         }
         Ok(Rc::from(MalVec::from(result)))
     } else if let Ok(map) = ast.as_type::<MalHashMap>() {
         let mut result = HashMap::with_capacity(map.len());
         for (key, value) in map.iter() {
-            result.insert(key.to_string(), eval(value.clone(), env.clone())?);
+            result.insert(key.to_string(), eval(value.clone(), env)?);
         }
         Ok(Rc::from(MalHashMap::from(result)))
     } else if ast.is::<MalSymbol>() {
@@ -112,16 +129,16 @@ pub fn eval_ast(ast: Rc<dyn MalType>, env: Rc<Env>) -> MalResult {
     }
 }
 
-pub fn def_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+pub fn def_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     let symbol = &args[0];
-    let value = eval(args[1].clone(), env.clone())?;
+    let value = eval(args[1].clone(), env)?;
     env.set(symbol, value.clone())?;
     Ok(value)
 }
 
 pub fn let_fn(
     args: &[Rc<dyn MalType>],
-    env: Rc<Env>,
+    env: &Rc<Env>,
 ) -> Result<(Rc<dyn MalType>, Rc<Env>), MalError> {
     if args.len() != 2 {
         return Err(MalError::TypeError);
@@ -135,28 +152,28 @@ pub fn let_fn(
     let pair_count = env_list.len() / 2;
     for i in 0..pair_count {
         let symbol = env_list[2 * i].clone();
-        let value = eval(env_list[2 * i + 1].clone(), new_env.clone())?;
+        let value = eval(env_list[2 * i + 1].clone(), &new_env)?;
         new_env.set(&symbol, value.clone())?;
     }
     Ok((args[1].clone(), new_env))
 }
 
-pub fn do_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+pub fn do_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     if args.is_empty() {
         return Err(MalError::TypeError);
     }
     let len = args.len();
     for arg in &args[0..len - 1] {
-        eval(arg.clone(), env.clone())?;
+        eval(arg.clone(), env)?;
     }
     Ok(args[len - 1].clone())
 }
 
-pub fn if_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+pub fn if_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     if args.len() != 2 && args.len() != 3 {
         return Err(MalError::TypeError);
     }
-    if eval(args[0].clone(), env.clone())?.truthy() {
+    if eval(args[0].clone(), env)?.truthy() {
         Ok(args[1].clone())
     } else if args.len() == 3 {
         Ok(args[2].clone())
@@ -165,7 +182,7 @@ pub fn if_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
     }
 }
 
-pub fn fn_fn(args: &[Rc<dyn MalType>], env: Rc<Env>) -> MalResult {
+pub fn fn_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     if args.len() != 2 {
         return Err(MalError::TypeError);
     }

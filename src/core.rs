@@ -6,31 +6,31 @@ use crate::{
     MalError, MalResult,
 };
 
-pub fn add(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn add(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(lhs + rhs))
 }
 
-pub fn subtract(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn subtract(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(lhs - rhs))
 }
 
-pub fn multiply(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn multiply(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(lhs * rhs))
 }
 
-pub fn divide(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn divide(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(lhs / rhs))
 }
 
-pub fn prn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn prn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     if !args.is_empty() {
         print!("{:?}", args[0]);
         for arg in &args[1..] {
@@ -41,7 +41,7 @@ pub fn prn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(MalNil::new())
 }
 
-pub fn println_fn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn println_fn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     if !args.is_empty() {
         print!("{}", args[0]);
         for arg in &args[1..] {
@@ -52,15 +52,15 @@ pub fn println_fn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(MalNil::new())
 }
 
-pub fn list(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn list(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     Ok(Rc::from(MalList::from(Vec::from(args))))
 }
 
-pub fn is_list(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn is_list(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     Ok(Rc::from(MalBool::from(args[0].is::<MalList>())))
 }
 
-pub fn is_empty(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn is_empty(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let value = match args[0].as_array() {
         Ok(arr) => arr.is_empty(),
         Err(_) => true,
@@ -68,7 +68,7 @@ pub fn is_empty(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(Rc::from(MalBool::from(value)))
 }
 
-pub fn count(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn count(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let value = match args[0].as_array() {
         Ok(arr) => arr.len() as i64,
         Err(_) => 0,
@@ -76,7 +76,7 @@ pub fn count(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(Rc::from(MalInt::from(value)))
 }
 
-pub fn equal(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn equal(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     if args.len() != 2 {
         return Err(MalError::TypeError);
     }
@@ -85,31 +85,31 @@ pub fn equal(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs.equal(rhs))))
 }
 
-pub fn lt(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn lt(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(MalBool::from(lhs < rhs)))
 }
 
-pub fn leq(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn leq(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(MalBool::from(lhs <= rhs)))
 }
 
-pub fn gt(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn gt(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(MalBool::from(lhs > rhs)))
 }
 
-pub fn geq(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn geq(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(MalBool::from(lhs >= rhs)))
 }
 
-pub fn pr_str(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn pr_str(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let mut string = String::new();
     if !args.is_empty() {
         string.write_fmt(format_args!("{:?}", &args[0])).unwrap();
@@ -120,7 +120,7 @@ pub fn pr_str(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     Ok(Rc::from(MalString::from(string)))
 }
 
-pub fn str_fn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+pub fn str_fn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     let mut string = String::new();
     for arg in args {
         string.write_str(&arg.to_string()).unwrap();
