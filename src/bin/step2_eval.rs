@@ -1,11 +1,9 @@
-use std::rc::Rc;
-
 use mal::env::Env;
 use rustyline::{error::ReadlineError, Editor};
 
 fn main() {
     let mut editor = Editor::<()>::new();
-    let environment = Rc::from(Env::default());
+    let environment = Env::new();
     loop {
         let readline = editor.readline("user> ");
         match readline {

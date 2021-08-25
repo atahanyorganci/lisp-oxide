@@ -13,7 +13,7 @@ fn eval(input: Rc<dyn MalType>) -> MalResult {
 }
 
 fn print(input: Rc<dyn MalType>) -> String {
-    format!("{}", input)
+    format!("{:?}", input)
 }
 
 fn rep(input: &str) -> Result<String, MalError> {
