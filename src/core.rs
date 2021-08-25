@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use std::{fmt::Write, rc::Rc};
 
 use crate::{
     env::Env,
-    types::{MalBool, MalInt, MalList, MalNil, MalType},
+    types::{MalBool, MalInt, MalList, MalNil, MalString, MalType},
     MalError, MalResult,
 };
 
@@ -32,12 +32,23 @@ pub fn divide(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
 
 pub fn prn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     if !args.is_empty() {
+        print!("{:?}", args[0]);
+        for arg in &args[1..] {
+            print!(" {:?}", arg);
+        }
+    }
+    print!("\n");
+    Ok(MalNil::new())
+}
+
+pub fn println_fn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+    if !args.is_empty() {
         print!("{}", args[0]);
         for arg in &args[1..] {
             print!(" {}", arg);
         }
-        print!("\n");
     }
+    print!("\n");
     Ok(MalNil::new())
 }
 
@@ -96,4 +107,23 @@ pub fn geq(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
     let lhs = args[0].as_type::<MalInt>()?;
     let rhs = args[1].as_type::<MalInt>()?;
     Ok(Rc::from(MalBool::from(lhs >= rhs)))
+}
+
+pub fn pr_str(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+    let mut string = String::new();
+    if !args.is_empty() {
+        string.write_fmt(format_args!("{:?}", &args[0])).unwrap();
+        for arg in &args[1..] {
+            string.write_fmt(format_args!(" {:?}", arg)).unwrap();
+        }
+    }
+    Ok(Rc::from(MalString::from(string)))
+}
+
+pub fn str_fn(args: &[Rc<dyn MalType>], _env: Rc<Env>) -> MalResult {
+    let mut string = String::new();
+    for arg in args {
+        string.write_str(&arg.to_string()).unwrap();
+    }
+    Ok(Rc::from(MalString::from(string)))
 }

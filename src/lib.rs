@@ -77,7 +77,7 @@ pub fn eval(ast: Rc<dyn MalType>, env: Rc<Env>) -> MalResult {
 }
 
 pub fn print(input: Rc<dyn MalType>) -> String {
-    format!("{}", input)
+    format!("{:?}", input)
 }
 
 pub fn eval_ast(ast: Rc<dyn MalType>, env: Rc<Env>) -> MalResult {

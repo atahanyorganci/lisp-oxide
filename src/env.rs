@@ -2,8 +2,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     core::{
-        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, lt, multiply, prn,
-        subtract,
+        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, lt, multiply, pr_str,
+        println_fn, prn, str_fn, subtract,
     },
     rep,
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
@@ -28,20 +28,28 @@ impl Default for Env {
 impl Env {
     pub fn new() -> Rc<Self> {
         let env = Rc::from(Self::default());
+        // Numeric functions
         env.register_func("+", &add);
         env.register_func("-", &subtract);
         env.register_func("*", &multiply);
         env.register_func("/", &divide);
-        env.register_func("prn", &prn);
-        env.register_func("list", &list);
-        env.register_func("list?", &is_list);
-        env.register_func("empty?", &is_empty);
-        env.register_func("count", &count);
         env.register_func("=", &equal);
         env.register_func(">", &gt);
         env.register_func(">=", &geq);
         env.register_func("<", &lt);
         env.register_func("<=", &leq);
+
+        // List functions
+        env.register_func("list", &list);
+        env.register_func("list?", &is_list);
+        env.register_func("empty?", &is_empty);
+        env.register_func("count", &count);
+
+        // String functions
+        env.register_func("prn", &prn);
+        env.register_func("pr-str", &pr_str);
+        env.register_func("str", &str_fn);
+        env.register_func("println", &println_fn);
 
         match rep("(def! not (fn* (a) (if a false true)))", env.clone()) {
             Ok(_) => env,
