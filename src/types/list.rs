@@ -1,8 +1,12 @@
-use std::{any::Any, fmt::Display, ops::Index, rc::Rc};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+    ops::Index,
+    rc::Rc,
+};
 
 use super::{array_equal, MalType};
 
-#[derive(Debug)]
 pub struct MalList {
     value: Vec<Rc<dyn MalType>>,
 }
@@ -10,6 +14,21 @@ pub struct MalList {
 impl From<Vec<Rc<dyn MalType>>> for MalList {
     fn from(value: Vec<Rc<dyn MalType>>) -> Self {
         MalList { value }
+    }
+}
+
+impl Debug for MalList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(")?;
+        let mut iter = self.value.iter();
+        match iter.next() {
+            Some(item) => write!(f, "{:?}", item)?,
+            None => return write!(f, ")"),
+        }
+        for item in iter {
+            write!(f, " {:?}", item)?;
+        }
+        write!(f, ")")
     }
 }
 

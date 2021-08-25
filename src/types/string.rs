@@ -1,8 +1,10 @@
-use std::{any::Any, fmt::Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use super::MalType;
 
-#[derive(Debug)]
 pub struct MalString {
     value: String,
 }
@@ -13,9 +15,25 @@ impl From<String> for MalString {
     }
 }
 
+impl Debug for MalString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"")?;
+        for ch in self.value.chars() {
+            match ch {
+                '"' => write!(f, "\\\"")?,
+                '\n' => write!(f, "\\n")?,
+                '\\' => write!(f, "\\\\")?,
+                '\t' => write!(f, "\\t")?,
+                _ => write!(f, "{}", ch)?,
+            }
+        }
+        write!(f, "\"")
+    }
+}
+
 impl Display for MalString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"{}\"", self.value)
+        write!(f, "{}", self.value)
     }
 }
 

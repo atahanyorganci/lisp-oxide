@@ -1,8 +1,10 @@
-use std::{any::Any, fmt::Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use super::MalType;
 
-#[derive(Debug)]
 pub struct MalKeyword {
     value: String,
 }
@@ -10,6 +12,12 @@ pub struct MalKeyword {
 impl From<String> for MalKeyword {
     fn from(value: String) -> Self {
         MalKeyword { value }
+    }
+}
+
+impl Debug for MalKeyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{}", self.value)
     }
 }
 

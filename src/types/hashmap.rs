@@ -2,7 +2,7 @@ use std::{
     any::{Any, TypeId},
     collections::{hash_map::Iter, HashMap},
     convert::TryFrom,
-    fmt::Display,
+    fmt::{Debug, Display},
     rc::Rc,
 };
 
@@ -10,7 +10,6 @@ use crate::MalError;
 
 use super::{MalKeyword, MalString, MalType};
 
-#[derive(Debug)]
 pub struct MalHashMap {
     value: HashMap<String, Rc<dyn MalType>>,
 }
@@ -40,6 +39,22 @@ impl TryFrom<Vec<Rc<dyn MalType>>> for MalHashMap {
             map.insert(key, value);
         }
         Ok(map.into())
+    }
+}
+
+impl Debug for MalHashMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{")?;
+        let mut iter = self.value.iter();
+        match iter.next() {
+            Some((key, value)) if key.starts_with(':') => write!(f, "{} {:?}", key, value)?,
+            Some((key, value)) => write!(f, "{:?} {:?}", key, value)?,
+            None => return write!(f, "}}"),
+        }
+        for (key, value) in iter {
+            write!(f, " {:?} {:?}", key, value)?;
+        }
+        write!(f, "}}")
     }
 }
 

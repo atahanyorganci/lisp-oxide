@@ -8,11 +8,16 @@ use crate::{env::Env, eval, MalError, MalResult};
 
 use super::{MalList, MalSymbol, MalType};
 
-#[derive(Debug)]
 pub struct MalClojure {
     arg_symbols: Vec<Rc<dyn MalType>>,
     body: Rc<dyn MalType>,
     outer: Rc<Env>,
+}
+
+impl Debug for MalClojure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#<function>")
+    }
 }
 
 impl Display for MalClojure {

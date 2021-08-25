@@ -1,8 +1,11 @@
-use std::{any::Any, fmt::Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use super::MalType;
 
-#[derive(Debug, Hash, Eq, Clone)]
+#[derive(Hash, Eq, Clone)]
 pub struct MalSymbol {
     value: String,
 }
@@ -25,6 +28,11 @@ impl MalSymbol {
     }
 }
 
+impl Debug for MalSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
 impl Display for MalSymbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value)

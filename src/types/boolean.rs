@@ -1,8 +1,10 @@
-use std::{any::Any, fmt::Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use super::MalType;
 
-#[derive(Debug)]
 pub struct MalBool {
     value: bool,
 }
@@ -10,6 +12,12 @@ pub struct MalBool {
 impl From<bool> for MalBool {
     fn from(value: bool) -> Self {
         MalBool { value }
+    }
+}
+
+impl Debug for MalBool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
