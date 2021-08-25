@@ -1,7 +1,8 @@
-use std::{fmt::Write, rc::Rc};
+use std::{fmt::Write, fs, rc::Rc};
 
 use crate::{
     env::Env,
+    eval, read,
     types::{MalBool, MalInt, MalList, MalNil, MalString, MalType},
     MalError, MalResult,
 };
@@ -126,4 +127,43 @@ pub fn str_fn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
         string.write_str(&arg.to_string()).unwrap();
     }
     Ok(Rc::from(MalString::from(string)))
+}
+
+pub fn read_string(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if args.is_empty() {
+        return Err(MalError::TypeError);
+    }
+    let result = match args[0].as_type::<MalString>() {
+        Ok(string) => read(string.as_str())?,
+        Err(_) => return Err(MalError::TypeError),
+    };
+    Ok(result)
+}
+
+pub fn slurp(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if args.is_empty() {
+        return Err(MalError::TypeError);
+    }
+    match args[0].as_type::<MalString>() {
+        Ok(string) => match fs::read_to_string(string.as_str()) {
+            Ok(string) => Ok(Rc::from(MalString::from(string))),
+            Err(_) => Err(MalError::IOError),
+        },
+        Err(_) => Err(MalError::TypeError),
+    }
+}
+
+pub fn load_file(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    if args.is_empty() {
+        return Err(MalError::TypeError);
+    }
+    let input = match args[0].as_type::<MalString>() {
+        Ok(string) => match fs::read_to_string(string.as_str()) {
+            Ok(string) => format!("(do {}\n nil)", &string),
+            Err(_) => return Err(MalError::IOError),
+        },
+        Err(_) => return Err(MalError::TypeError),
+    };
+    let ast = read(input.as_str())?;
+    eval(ast, env)
 }

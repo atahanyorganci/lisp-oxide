@@ -2,8 +2,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     core::{
-        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, lt, multiply, pr_str,
-        println_fn, prn, str_fn, subtract,
+        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, load_file, lt, multiply,
+        pr_str, println_fn, prn, read_string, slurp, str_fn, subtract,
     },
     rep,
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
@@ -50,11 +50,13 @@ impl Env {
         env.register_func("pr-str", &pr_str);
         env.register_func("str", &str_fn);
         env.register_func("println", &println_fn);
+        env.register_func("read-string", &read_string);
+        env.register_func("slurp", &slurp);
+        env.register_func("load-file", &load_file);
 
-        match rep("(def! not (fn* (a) (if a false true)))", &env) {
-            Ok(_) => env,
-            Err(_) => unreachable!(),
-        }
+        rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
+
+        env
     }
 
     pub fn get(&self, obj: Rc<dyn MalType>) -> MalResult {

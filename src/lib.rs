@@ -13,6 +13,7 @@ pub mod types;
 
 pub type MalResult = Result<Rc<dyn MalType>, MalError>;
 
+#[derive(Debug)]
 pub enum MalError {
     NotCallable,
     NotFound(Rc<dyn MalType>),
@@ -20,6 +21,7 @@ pub enum MalError {
     Unbalanced,
     TypeError,
     Unimplemented,
+    IOError,
 }
 
 impl Display for MalError {
@@ -31,6 +33,7 @@ impl Display for MalError {
             MalError::Unbalanced => write!(f, "unbalanced"),
             MalError::TypeError => write!(f, "type error"),
             MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
+            MalError::IOError => write!(f, "IO Error"),
         }
     }
 }
@@ -59,7 +62,13 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 let (new_ast, new_env) = let_fn(&list.values()[1..], env)?;
                 ast = new_ast;
                 unsafe {
-                    init = true;
+                    if init {
+                        let to_drop = outer.assume_init();
+                        drop(to_drop);
+                    } else {
+                        init = false;
+                    }
+                    outer = MaybeUninit::uninit();
                     outer.as_mut_ptr().write(new_env);
                     env = &*outer.as_ptr();
                 }
@@ -69,6 +78,8 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 ast = if_fn(&list.values()[1..], env)?;
             } else if list[0].is_special("fn*") {
                 break fn_fn(&list.values()[1..], env);
+            } else if list[0].is_special("eval") {
+                ast = eval_fn(&list.values()[1..], env)?;
             } else {
                 let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
@@ -78,7 +89,13 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                     let (new_ast, new_env) = clojure.call(&values[1..], env)?;
                     ast = new_ast;
                     unsafe {
-                        init = true;
+                        if init {
+                            let to_drop = outer.assume_init();
+                            drop(to_drop);
+                        } else {
+                            init = false;
+                        }
+                        outer = MaybeUninit::uninit();
                         outer.as_mut_ptr().write(new_env);
                         env = &*outer.as_ptr();
                     }
@@ -188,4 +205,12 @@ pub fn fn_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     }
     let arg_names = args[0].as_array()?;
     MalClojure::try_new(arg_names, args[1].clone(), env.clone())
+}
+
+pub fn eval_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    if args.len() != 1 {
+        Err(MalError::TypeError)
+    } else {
+        eval(args[0].clone(), env)
+    }
 }

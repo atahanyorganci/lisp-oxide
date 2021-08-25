@@ -53,3 +53,9 @@ impl MalType for MalString {
         }
     }
 }
+
+impl MalString {
+    pub fn as_str(&self) -> &str {
+        self.value.as_str()
+    }
+}
