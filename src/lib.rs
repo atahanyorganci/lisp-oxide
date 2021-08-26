@@ -104,7 +104,7 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 }
             }
         } else {
-            break eval_ast(ast, &env);
+            break eval_ast(ast, env);
         }
     };
     if init {

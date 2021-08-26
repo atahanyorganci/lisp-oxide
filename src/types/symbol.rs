@@ -5,7 +5,7 @@ use std::{
 
 use super::MalType;
 
-#[derive(Hash, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone)]
 pub struct MalSymbol {
     value: String,
 }
@@ -53,12 +53,6 @@ impl MalType for MalSymbol {
             Ok(symbol) => self.value == symbol.value,
             Err(_) => false,
         }
-    }
-}
-
-impl PartialEq for MalSymbol {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
     }
 }
 

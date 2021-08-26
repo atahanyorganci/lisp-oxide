@@ -38,7 +38,7 @@ pub fn prn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
             print!(" {:?}", arg);
         }
     }
-    print!("\n");
+    println!();
     Ok(MalNil::new())
 }
 
@@ -49,7 +49,7 @@ pub fn println_fn(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
             print!(" {}", arg);
         }
     }
-    print!("\n");
+    println!();
     Ok(MalNil::new())
 }
 

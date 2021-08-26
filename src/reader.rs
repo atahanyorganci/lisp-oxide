@@ -30,7 +30,7 @@ impl From<&str> for AtomKind {
         lazy_static! {
             static ref INT_RE: Regex = Regex::new("^-?\\d+$").unwrap();
         }
-        if INT_RE.is_match_at(&atom, 0) {
+        if INT_RE.is_match_at(atom, 0) {
             AtomKind::Int
         } else if atom.starts_with(':') {
             AtomKind::Keyword
@@ -101,7 +101,7 @@ impl Reader<'_> {
         self.tokenizer.error.is_some()
     }
 
-    pub fn read_from<'a>(reader: &mut Peekable<Self>) -> MalResult {
+    pub fn read_from(reader: &mut Peekable<Self>) -> MalResult {
         match reader.peek() {
             Some(Token::LeftParen) => Reader::read_list(reader),
             Some(Token::LeftSquare) => Reader::read_vec(reader),
@@ -193,8 +193,7 @@ impl Reader<'_> {
                 if INT_RE.is_match_at(&atom, 0) {
                     let value = i64::from_str(&atom).unwrap();
                     Ok(Rc::from(MalInt::from(value)))
-                } else if atom.starts_with(':') {
-                    let word = &atom[1..];
+                } else if let Some(word) = atom.strip_prefix(':') {
                     Ok(Rc::from(MalKeyword::from(word.to_string())))
                 } else if atom == "true" {
                     Ok(Rc::from(MalBool::from(true)))
@@ -226,6 +225,12 @@ impl<'a> From<&'a str> for Tokenizer<'a> {
             index: 0,
             error: None,
         }
+    }
+}
+
+impl PartialEq<Token> for FullToken {
+    fn eq(&self, other: &Token) -> bool {
+        &self.token == other
     }
 }
 
@@ -298,9 +303,9 @@ pub struct FullToken {
     pub stop: usize,
 }
 
-impl Into<Token> for FullToken {
-    fn into(self) -> Token {
-        self.token
+impl From<FullToken> for Token {
+    fn from(full_token: FullToken) -> Self {
+        full_token.token
     }
 }
 
@@ -335,7 +340,7 @@ impl Display for Token {
             Token::IncompleteString(string) => write!(f, "\"{}", string),
             Token::IncompleteEmptyString => write!(f, "\""),
             Token::Space => write!(f, " "),
-            Token::Newline => write!(f, "\n"),
+            Token::Newline => writeln!(f),
             Token::CarriageReturn => write!(f, "\r"),
             Token::Tab => write!(f, "\t"),
             Token::Comma => write!(f, ","),
@@ -356,169 +361,164 @@ impl Iterator for Tokenizer<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.index;
-        let token = loop {
-            let nth = self.input.chars().nth(self.index);
-
-            match nth {
-                Some(',') => {
-                    self.index += 1;
-                    break Token::Comma;
-                }
-                Some(' ') => {
-                    self.index += 1;
-                    break Token::Space;
-                }
-                Some('\n') => {
-                    self.index += 1;
-                    break Token::Newline;
-                }
-                Some('\r') => {
-                    self.index += 1;
-                    break Token::CarriageReturn;
-                }
-                Some('\t') => {
-                    self.index += 1;
-                    break Token::Tab;
-                }
-                Some('~') => {
-                    let peeked = self.input.chars().nth(self.index + 1);
-                    match peeked {
-                        Some('@') => {
-                            self.index += 2;
-                            break Token::TildeAt;
-                        }
-                        Some(_) => {
-                            self.index += 1;
-                            break Token::Tilde;
-                        }
-                        None => {
-                            self.index += 1;
-                            break Token::Tilde;
-                        }
-                    }
-                }
-                Some('[') => {
-                    self.index += 1;
-                    break Token::LeftSquare;
-                }
-                Some(']') => {
-                    self.index += 1;
-                    break Token::RightSquare;
-                }
-                Some('{') => {
-                    self.index += 1;
-                    break Token::LeftCurly;
-                }
-                Some('}') => {
-                    self.index += 1;
-                    break Token::RightCurly;
-                }
-                Some('(') => {
-                    self.index += 1;
-                    break Token::LeftParen;
-                }
-                Some(')') => {
-                    self.index += 1;
-                    break Token::RightParen;
-                }
-                Some('\'') => {
-                    self.index += 1;
-                    break Token::Apostrophe;
-                }
-                Some('`') => {
-                    self.index += 1;
-                    break Token::BackTick;
-                }
-                Some('^') => {
-                    self.index += 1;
-                    break Token::Caret;
-                }
-                Some('@') => {
-                    self.index += 1;
-                    break Token::At;
-                }
-                Some('"') => {
-                    self.index += 1;
-
-                    let mut remaining = match self.input.get(self.index..) {
-                        Some(s) if s.is_empty() => {
-                            self.error = Some(TokenizationError::UnbalancedString);
-                            break Token::IncompleteEmptyString;
-                        }
-                        Some(s) => s.chars().peekable(),
-                        None => unreachable!("Empty &str should have been returned!"),
-                    };
-
-                    let mut string = String::new();
-                    let string_token = loop {
-                        let ch = match remaining.next() {
-                            Some(ch) => ch,
-                            None => break Token::IncompleteString(string),
-                        };
-
-                        self.index += 1;
-                        match ch {
-                            '"' => {
-                                break Token::String(string);
-                            }
-                            '\\' => match remaining.peek() {
-                                Some('"') => {
-                                    remaining.next().unwrap();
-                                    string.push('"');
-                                    self.index += 1;
-                                }
-                                Some('n') => {
-                                    remaining.next().unwrap();
-                                    string.push('\n');
-                                    self.index += 1;
-                                }
-                                Some('\\') => {
-                                    remaining.next().unwrap();
-                                    string.push('\\');
-                                    self.index += 1;
-                                }
-                                Some(_) => string.push('\\'),
-                                None => {
-                                    break Token::IncompleteString(string);
-                                }
-                            },
-                            _ => string.push(ch),
-                        }
-                    };
-
-                    if let Token::IncompleteString(_) = string_token {
-                        self.error = Some(TokenizationError::UnbalancedString);
-                    }
-                    break string_token;
-                }
-                Some(';') => {
-                    let chars = self.input.get(self.index..).unwrap().chars();
-                    let mut result = String::new();
-                    for ch in chars {
-                        if ch != '\n' {
-                            self.index += 1;
-                            result.push(ch);
-                        } else {
-                            break;
-                        }
-                    }
-                    break Token::Comment(result);
-                }
-                Some(_) => {
-                    let chars = self.input.get(self.index..).unwrap().chars();
-                    let mut result = String::new();
-                    for ch in chars {
-                        if !is_special_char(ch) {
-                            self.index += 1;
-                            result.push(ch);
-                        } else {
-                            break;
-                        }
-                    }
-                    break Token::Atom(result);
-                }
-                None => return None,
+        let nth = self.input.chars().nth(self.index);
+        let token = match nth {
+            Some(',') => {
+                self.index += 1;
+                Token::Comma
             }
+            Some(' ') => {
+                self.index += 1;
+                Token::Space
+            }
+            Some('\n') => {
+                self.index += 1;
+                Token::Newline
+            }
+            Some('\r') => {
+                self.index += 1;
+                Token::CarriageReturn
+            }
+            Some('\t') => {
+                self.index += 1;
+                Token::Tab
+            }
+            Some('~') => {
+                let peeked = self.input.chars().nth(self.index + 1);
+                match peeked {
+                    Some('@') => {
+                        self.index += 2;
+                        Token::TildeAt
+                    }
+                    Some(_) => {
+                        self.index += 1;
+                        Token::Tilde
+                    }
+                    None => {
+                        self.index += 1;
+                        Token::Tilde
+                    }
+                }
+            }
+            Some('[') => {
+                self.index += 1;
+                Token::LeftSquare
+            }
+            Some(']') => {
+                self.index += 1;
+                Token::RightSquare
+            }
+            Some('{') => {
+                self.index += 1;
+                Token::LeftCurly
+            }
+            Some('}') => {
+                self.index += 1;
+                Token::RightCurly
+            }
+            Some('(') => {
+                self.index += 1;
+                Token::LeftParen
+            }
+            Some(')') => {
+                self.index += 1;
+                Token::RightParen
+            }
+            Some('\'') => {
+                self.index += 1;
+                Token::Apostrophe
+            }
+            Some('`') => {
+                self.index += 1;
+                Token::BackTick
+            }
+            Some('^') => {
+                self.index += 1;
+                Token::Caret
+            }
+            Some('@') => {
+                self.index += 1;
+                Token::At
+            }
+            Some('"') => {
+                self.index += 1;
+
+                let mut remaining = self.input.get(self.index..).unwrap().chars().peekable();
+                let mut string = String::new();
+                let string_token = loop {
+                    let ch = match remaining.next() {
+                        Some(ch) => ch,
+                        None => {
+                            if string.is_empty() {
+                                break Token::IncompleteEmptyString;
+                            } else {
+                                break Token::IncompleteString(string);
+                            }
+                        }
+                    };
+
+                    self.index += 1;
+                    match ch {
+                        '"' => {
+                            break Token::String(string);
+                        }
+                        '\\' => match remaining.peek() {
+                            Some('"') => {
+                                remaining.next().unwrap();
+                                string.push('"');
+                                self.index += 1;
+                            }
+                            Some('n') => {
+                                remaining.next().unwrap();
+                                string.push('\n');
+                                self.index += 1;
+                            }
+                            Some('\\') => {
+                                remaining.next().unwrap();
+                                string.push('\\');
+                                self.index += 1;
+                            }
+                            Some(_) => string.push('\\'),
+                            None => {
+                                break Token::IncompleteString(string);
+                            }
+                        },
+                        _ => string.push(ch),
+                    }
+                };
+
+                if let Token::IncompleteString(_) = string_token {
+                    self.error = Some(TokenizationError::UnbalancedString);
+                }
+                string_token
+            }
+            Some(';') => {
+                let chars = self.input.get(self.index..).unwrap().chars();
+                let mut result = String::new();
+                for ch in chars {
+                    if ch != '\n' {
+                        self.index += 1;
+                        result.push(ch);
+                    } else {
+                        break;
+                    }
+                }
+                Token::Comment(result)
+            }
+            Some(_) => {
+                let chars = self.input.get(self.index..).unwrap().chars();
+                let mut result = String::new();
+                for ch in chars {
+                    if !is_special_char(ch) {
+                        self.index += 1;
+                        result.push(ch);
+                    } else {
+                        break;
+                    }
+                }
+                Token::Atom(result)
+            }
+            None => return None,
         };
         Some(FullToken::new(token, start, self.index))
     }
@@ -528,15 +528,17 @@ impl Iterator for Tokenizer<'_> {
 mod tests {
     use crate::reader::{Reader, Token};
 
+    use super::Tokenizer;
+
     #[test]
-    fn dont_tokenize_whitespace_and_commas() {
+    fn dont_read_whitespace_and_commas() {
         let reader = Reader::from(" \t\r\n,");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![])
     }
 
     #[test]
-    fn tokenize_special_characters() {
+    fn read_special_characters() {
         let reader = Reader::from("[]{}()'`~^@~@");
         let result: Vec<_> = reader.collect();
         assert_eq!(
@@ -559,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_strings() {
+    fn read_strings() {
         let reader = Reader::from("\"one\" \"two\" \"three\"");
         let result: Vec<_> = reader.collect();
         assert_eq!(
@@ -573,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_strings_with_escape_sequences() {
+    fn read_strings_with_escape_sequences() {
         let reader = Reader::from(r#"backslash "\\" double-quote "\"" newline "\n" "#);
         let result: Vec<_> = reader.collect();
         assert_eq!(
@@ -590,14 +592,14 @@ mod tests {
     }
 
     #[test]
-    fn dont_tokenize_unbalanced_strings() {
+    fn dont_read_unbalanced_strings() {
         let reader = Reader::from("\"unbalanced\" \"strings");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![Token::String(String::from("unbalanced")),]);
     }
 
     #[test]
-    fn tokenize_symbols() {
+    fn read_symbols() {
         let reader = Reader::from("first second third");
         let result: Vec<_> = reader.collect();
         assert_eq!(
@@ -611,9 +613,58 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_comments() {
+    fn read_comments() {
         let reader = Reader::from("atom ; This is comment");
         let result: Vec<_> = reader.collect();
         assert_eq!(result, vec![Token::Atom(String::from("atom")),])
+    }
+
+    #[test]
+    fn tokeize_whitspace_and_commans() {
+        let tokenizer = Tokenizer::from(" \t\r\n");
+        let result: Vec<_> = tokenizer.collect();
+        assert_eq!(
+            result,
+            vec![
+                Token::Space,
+                Token::Tab,
+                Token::CarriageReturn,
+                Token::Newline
+            ]
+        );
+    }
+
+    #[test]
+    fn tokeize_incomplete_strings() {
+        let tokenizer = Tokenizer::from(r#""string""incomplete"#);
+        let result: Vec<_> = tokenizer.collect();
+        assert_eq!(
+            result,
+            vec![
+                Token::String("string".to_string()),
+                Token::IncompleteString("incomplete".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn tokeize_incomplete_empty_strings() {
+        let tokenizer = Tokenizer::from("\"");
+        let result: Vec<_> = tokenizer.collect();
+        assert_eq!(result, vec![Token::IncompleteEmptyString]);
+    }
+
+    #[test]
+    fn tokeize_comments_strings() {
+        let tokenizer = Tokenizer::from("bruh ; This is a comment");
+        let result: Vec<_> = tokenizer.collect();
+        assert_eq!(
+            result,
+            vec![
+                Token::Atom("bruh".to_string()),
+                Token::Space,
+                Token::Comment("; This is a comment".to_string()),
+            ]
+        );
     }
 }

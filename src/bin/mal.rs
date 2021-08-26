@@ -39,7 +39,7 @@ impl Completer for MalHelper {
                 continue;
             }
             if let Token::Atom(atom) = token.as_token() {
-                return Ok((token.start, self.env.starts_with(&atom)));
+                return Ok((token.start, self.env.starts_with(atom)));
             }
         }
         Err(ReadlineError::Eof)
@@ -55,8 +55,8 @@ impl Highlighter for MalHelper {
         let width = (line.len() as f64 * 1.5) as usize;
         let mut owned = String::with_capacity(width);
 
-        let mut tokenizer = Tokenizer::from(line);
-        while let Some(full_token) = tokenizer.next() {
+        let tokenizer = Tokenizer::from(line);
+        for full_token in tokenizer {
             let token = full_token.as_token();
             match token {
                 Token::TildeAt
@@ -119,12 +119,12 @@ impl Highlighter for MalHelper {
 impl Validator for MalHelper {
     fn validate(&self, ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
         let input = ctx.input();
-        let mut reader = Reader::from(input);
+        let reader = Reader::from(input);
 
         let mut curly = 0;
         let mut square = 0;
         let mut paren = 0;
-        while let Some(token) = reader.next() {
+        for token in reader {
             match token {
                 Token::LeftSquare => square += 1,
                 Token::RightSquare => square -= 1,
@@ -150,7 +150,7 @@ impl Validator for MalHelper {
                 | Token::Atom(_) => {}
             }
         }
-        if curly != 0 || square != 0 || paren != 0 || reader.is_err() {
+        if curly != 0 || square != 0 || paren != 0 {
             Ok(ValidationResult::Incomplete)
         } else {
             Ok(ValidationResult::Valid(None))
