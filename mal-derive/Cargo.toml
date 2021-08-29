@@ -1,0 +1,20 @@
+[package]
+name = "mal_derive"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+proc-macro = true
+
+[[test]]
+name = "tests"
+path = "tests/progress.rs"
+
+[dev-dependencies]
+trybuild = { version = "1.0.45", features = ["diff"] }
+mal = { path = ".." }
+
+[dependencies]
+syn = { version = "1.0.75", features = [ "full", "extra-traits"] }
+quote = "1.0.9"
