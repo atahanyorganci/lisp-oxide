@@ -2,8 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     core::{
-        add, count, divide, equal, geq, gt, is_empty, is_list, leq, list, load_file, lt, multiply,
-        pr_str, println_fn, prn, read_string, slurp, str_fn, subtract,
+        add, atom, count, deref, divide, equal, geq, gt, is_atom, is_empty, is_list, leq, list,
+        load_file, lt, multiply, pr_str, println_fn, prn, read_string, reset, slurp, str_fn,
+        subtract, swap,
     },
     rep,
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
@@ -53,6 +54,13 @@ impl Env {
         env.register_func("read-string", &read_string);
         env.register_func("slurp", &slurp);
         env.register_func("load-file", &load_file);
+
+        // Atom functions
+        env.register_func("atom", &atom);
+        env.register_func("atom?", &is_atom);
+        env.register_func("deref", &deref);
+        env.register_func("reset!", &reset);
+        env.register_func("swap!", &swap);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
 

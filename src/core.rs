@@ -3,7 +3,7 @@ use std::{fmt::Write, fs, rc::Rc};
 use crate::{
     env::Env,
     eval, read,
-    types::{MalBool, MalInt, MalList, MalNil, MalString, MalType},
+    types::{MalAtom, MalBool, MalClojure, MalInt, MalList, MalNil, MalString, MalType},
     MalError, MalResult,
 };
 
@@ -166,4 +166,62 @@ pub fn load_file(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     };
     let ast = read(input.as_str())?;
     eval(ast, env)
+}
+
+pub fn atom(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if let Some(value) = args.get(0) {
+        Ok(Rc::from(MalAtom::from(value.clone())))
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+pub fn is_atom(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if let Some(arg) = args.get(0) {
+        Ok(Rc::from(MalBool::from(arg.is::<MalAtom>())))
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+pub fn deref(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if args.len() != 1 {
+        return Err(MalError::TypeError);
+    }
+    match args[0].as_type::<MalAtom>() {
+        Ok(atom) => Ok(atom.value()),
+        Err(_) => return Err(MalError::TypeError),
+    }
+}
+
+pub fn reset(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
+    if args.len() != 2 {
+        return Err(MalError::TypeError);
+    }
+    if let Ok(atom) = args[0].as_type::<MalAtom>() {
+        let new_value = &args[1];
+        atom.replace(new_value.clone());
+        Ok(atom.value())
+    } else {
+        return Err(MalError::TypeError);
+    }
+}
+
+pub fn swap(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    if args.len() < 2 {
+        return Err(MalError::TypeError);
+    }
+
+    match args[0].as_type::<MalAtom>() {
+        Ok(atom) => {
+            if let Ok(func) = args[1].as_type() {
+                atom.update_with_fn(func, &args[2..], env)
+            } else if let Ok(clojure) = args[1].as_type::<MalClojure>() {
+                atom.update_with_clojure(clojure, &args[2..], env)
+            } else {
+                Err(MalError::TypeError)
+            }
+        }
+        Err(_) => return Err(MalError::TypeError),
+    }
 }
