@@ -1,17 +1,13 @@
-SRC := $(wildcard src/bin/step*.rs)
-BIN := $(patsubst src/bin/step%.rs, target/debug/step%, $(src))
-STEP := $(patsubst src/bin/step%.rs, %, $(SRC))
+BIN := $(wildcard src/bin/step*.rs)
+STEP := $(patsubst src/bin/step%.rs, step%, $(BIN))
 
-.PHONY: all $(STEP)
-all: build $(STEP)
+.PHONY: all $(STEP) clean
+all: $(STEP)
 
-step%: build
+$(STEP):
+	cargo build --bin $@
 	cp target/debug/$@ $@
-
-.PHONY: build clean
-build:
-	cargo build
 
 clean:
 	cargo clean
-	rm -f $(STEP)
+	rm -f $(STEP) step*.log
