@@ -1,13 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, env, rc::Rc};
 
 use crate::{
-    core::{
-        add, atom, count, deref, divide, equal, eval_fn, geq, gt, is_atom, is_empty, is_list, leq,
-        list, lt, multiply, pr_str, println_fn, prn, read_string, reset, slurp, str_fn, subtract,
-        swap,
-    },
+    core::*,
     rep,
-    types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
+    types::{func::MalFuncPtr, MalFunc, MalList, MalString, MalSymbol, MalType},
     MalError, MalResult,
 };
 
@@ -30,37 +26,37 @@ impl Env {
     pub fn new() -> Rc<Self> {
         let env = Rc::from(Self::default());
         // Numeric functions
-        env.register_func("+", &add);
-        env.register_func("-", &subtract);
-        env.register_func("*", &multiply);
-        env.register_func("/", &divide);
-        env.register_func("=", &equal);
-        env.register_func(">", &gt);
-        env.register_func(">=", &geq);
-        env.register_func("<", &lt);
-        env.register_func("<=", &leq);
+        env.register_func("+", &mal_add);
+        env.register_func("-", &mal_subtract);
+        env.register_func("*", &mal_multiply);
+        env.register_func("/", &mal_divide);
+        env.register_func("=", &mal_equal);
+        env.register_func(">", &mal_gt);
+        env.register_func(">=", &mal_geq);
+        env.register_func("<", &mal_lt);
+        env.register_func("<=", &mal_leq);
 
         // List functions
-        env.register_func("list", &list);
-        env.register_func("list?", &is_list);
-        env.register_func("empty?", &is_empty);
-        env.register_func("count", &count);
+        env.register_func("list", &mal_list);
+        env.register_func("list?", &mal_is_list);
+        env.register_func("empty?", &mal_is_empty);
+        env.register_func("count", &mal_count);
 
         // String functions
-        env.register_func("eval", &eval_fn);
-        env.register_func("prn", &prn);
-        env.register_func("pr-str", &pr_str);
-        env.register_func("str", &str_fn);
-        env.register_func("println", &println_fn);
-        env.register_func("read-string", &read_string);
-        env.register_func("slurp", &slurp);
+        env.register_func("eval", &mal_eval);
+        env.register_func("prn", &mal_prn);
+        env.register_func("pr-str", &mal_pr_str);
+        env.register_func("str", &mal_str);
+        env.register_func("println", &mal_println);
+        env.register_func("read-string", &mal_read_string);
+        env.register_func("slurp", &mal_slurp);
 
         // Atom functions
-        env.register_func("atom", &atom);
-        env.register_func("atom?", &is_atom);
-        env.register_func("deref", &deref);
-        env.register_func("reset!", &reset);
-        env.register_func("swap!", &swap);
+        env.register_func("atom", &mal_atom);
+        env.register_func("atom?", &mal_is_atom);
+        env.register_func("deref", &mal_deref);
+        env.register_func("reset!", &mal_reset);
+        env.register_func("swap!", &mal_swap);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
         rep(
