@@ -1,7 +1,7 @@
 use std::{fmt::Write, fs, rc::Rc};
 
 use crate::{
-    env::Env,
+    env::{self, Env},
     eval, read,
     types::{MalAtom, MalBool, MalClojure, MalInt, MalList, MalNil, MalString, MalType},
     MalError, MalResult,
@@ -153,21 +153,6 @@ pub fn slurp(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     }
 }
 
-pub fn load_file(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
-    if args.is_empty() {
-        return Err(MalError::TypeError);
-    }
-    let input = match args[0].as_type::<MalString>() {
-        Ok(string) => match fs::read_to_string(string.as_str()) {
-            Ok(string) => format!("(do {}\n nil)", &string),
-            Err(_) => return Err(MalError::IOError),
-        },
-        Err(_) => return Err(MalError::TypeError),
-    };
-    let ast = read(input.as_str())?;
-    eval(ast, env)
-}
-
 pub fn atom(args: &[Rc<dyn MalType>], _env: &Rc<Env>) -> MalResult {
     if let Some(value) = args.get(0) {
         Ok(Rc::from(MalAtom::from(value.clone())))
@@ -223,5 +208,14 @@ pub fn swap(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
             }
         }
         Err(_) => return Err(MalError::TypeError),
+    }
+}
+
+pub fn eval_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    if args.len() != 1 {
+        Err(MalError::TypeError)
+    } else {
+        let env = env::global(env);
+        eval(args[0].clone(), env)
     }
 }

@@ -2,9 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     core::{
-        add, atom, count, deref, divide, equal, geq, gt, is_atom, is_empty, is_list, leq, list,
-        load_file, lt, multiply, pr_str, println_fn, prn, read_string, reset, slurp, str_fn,
-        subtract, swap,
+        add, atom, count, deref, divide, equal, eval_fn, geq, gt, is_atom, is_empty, is_list, leq,
+        list, lt, multiply, pr_str, println_fn, prn, read_string, reset, slurp, str_fn, subtract,
+        swap,
     },
     rep,
     types::{func::MalFuncPtr, MalFunc, MalSymbol, MalType},
@@ -47,13 +47,13 @@ impl Env {
         env.register_func("count", &count);
 
         // String functions
+        env.register_func("eval", &eval_fn);
         env.register_func("prn", &prn);
         env.register_func("pr-str", &pr_str);
         env.register_func("str", &str_fn);
         env.register_func("println", &println_fn);
         env.register_func("read-string", &read_string);
         env.register_func("slurp", &slurp);
-        env.register_func("load-file", &load_file);
 
         // Atom functions
         env.register_func("atom", &atom);
@@ -63,6 +63,11 @@ impl Env {
         env.register_func("swap!", &swap);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
+        rep(
+            r#"(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))"#,
+            &env,
+        )
+        .unwrap();
 
         env
     }
@@ -128,5 +133,12 @@ impl Env {
             .filter(|symbol| symbol.starts_with(start))
             .map(|symbol| symbol.to_string())
             .collect()
+    }
+}
+
+pub fn global(env: &Rc<Env>) -> &Rc<Env> {
+    match &env.outer {
+        Some(outer) => global(outer),
+        None => env,
     }
 }

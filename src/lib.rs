@@ -78,8 +78,6 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 ast = if_fn(&list.values()[1..], env)?;
             } else if list[0].is_special("fn*") {
                 break fn_fn(&list.values()[1..], env);
-            } else if list[0].is_special("eval") {
-                ast = eval_fn(&list.values()[1..], env)?;
             } else {
                 let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
@@ -205,12 +203,4 @@ pub fn fn_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     }
     let arg_names = args[0].as_array()?;
     MalClojure::try_new(arg_names, args[1].clone(), env.clone())
-}
-
-pub fn eval_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
-    if args.len() != 1 {
-        Err(MalError::TypeError)
-    } else {
-        eval(args[0].clone(), env)
-    }
 }
