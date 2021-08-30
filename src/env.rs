@@ -68,8 +68,21 @@ impl Env {
             &env,
         )
         .unwrap();
+        env.init_argv();
 
         env
+    }
+
+    pub fn init_argv(&self) {
+        let argv: Vec<_> = env::args()
+            .into_iter()
+            .skip(2)
+            .map(|s| Rc::from(MalString::from(s)) as Rc<dyn MalType>)
+            .collect();
+
+        let argv = Rc::from(MalList::from(argv));
+        let symbol: Rc<dyn MalType> = Rc::from(MalSymbol::from("*ARGV*"));
+        self.set(&symbol, argv).unwrap();
     }
 
     pub fn get(&self, obj: Rc<dyn MalType>) -> MalResult {

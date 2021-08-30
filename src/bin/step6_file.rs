@@ -1,11 +1,11 @@
-use mal::env::Env;
+use std::{env, rc::Rc};
+
+use mal::{env::Env, rep};
 use rustyline::{error::ReadlineError, Config, Editor};
 
-fn main() {
+fn repl(env: Rc<Env>) {
     let config = Config::builder().auto_add_history(true).build();
     let mut editor = Editor::<()>::with_config(config);
-
-    let env = Env::new();
     loop {
         let readline = editor.readline("user> ");
         match readline {
@@ -17,5 +17,18 @@ fn main() {
             Err(ReadlineError::Interrupted) => break,
             Err(err) => eprintln!("Unexpected error encountered {}.", err),
         }
+    }
+}
+
+fn main() {
+    let env = Env::new();
+    let mut args = env::args().skip(1);
+    if let Some(filename) = args.next() {
+        let to_exec = format!("(load-file \"{}\")", filename);
+        if let Err(err) = rep(to_exec.as_str(), &env) {
+            eprintln!("{}", err);
+        }
+    } else {
+        repl(env);
     }
 }
