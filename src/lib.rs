@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display, mem::MaybeUninit, rc::Rc};
 
 use env::Env;
+use mal_derive::builtin_func;
 use reader::Reader;
 use types::{MalClojure, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec};
 
@@ -57,9 +58,9 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
             if list.is_empty() {
                 break Ok(ast);
             } else if list[0].is_special("def!") {
-                break def_fn(&list.values()[1..], env);
+                break mal_def(&list.values()[1..], env);
             } else if list[0].is_special("let*") {
-                let (new_ast, new_env) = let_fn(&list.values()[1..], env)?;
+                let (new_ast, new_env) = mal_let(&list.values()[1..], env)?;
                 ast = new_ast;
                 unsafe {
                     if init {
@@ -73,11 +74,11 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                     env = &*outer.as_ptr();
                 }
             } else if list[0].is_special("do") {
-                ast = do_fn(&list.values()[1..], env)?;
+                ast = mal_do(&list.values()[1..], env)?;
             } else if list[0].is_special("if") {
-                ast = if_fn(&list.values()[1..], env)?;
+                ast = mal_if(&list.values()[1..], env)?;
             } else if list[0].is_special("fn*") {
-                break fn_fn(&list.values()[1..], env);
+                break mal_fn(&list.values()[1..], env);
             } else {
                 let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
@@ -144,21 +145,20 @@ pub fn eval_ast(ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     }
 }
 
-pub fn def_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
-    let symbol = &args[0];
-    let value = eval(args[1].clone(), env)?;
+#[builtin_func(name = "def")]
+pub fn def_fn(symbol: &Rc<dyn MalType>, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    let value = eval(ast.clone(), env)?;
     env.set(symbol, value.clone())?;
     Ok(value)
 }
 
+#[builtin_func(name = "let")]
 pub fn let_fn(
-    args: &[Rc<dyn MalType>],
+    bindings: &Rc<dyn MalType>,
+    ast: &Rc<dyn MalType>,
     env: &Rc<Env>,
 ) -> Result<(Rc<dyn MalType>, Rc<Env>), MalError> {
-    if args.len() != 2 {
-        return Err(MalError::TypeError);
-    }
-    let env_list = args[0].as_array()?;
+    let env_list = bindings.as_array()?;
     if env_list.len() % 2 != 0 {
         return Err(MalError::TypeError);
     }
@@ -170,9 +170,10 @@ pub fn let_fn(
         let value = eval(env_list[2 * i + 1].clone(), &new_env)?;
         new_env.set(&symbol, value.clone())?;
     }
-    Ok((args[1].clone(), new_env))
+    Ok((ast.clone(), new_env))
 }
 
+#[builtin_func(name = "do")]
 pub fn do_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     if args.is_empty() {
         return Err(MalError::TypeError);
@@ -184,23 +185,23 @@ pub fn do_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     Ok(args[len - 1].clone())
 }
 
-pub fn if_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
-    if args.len() != 2 && args.len() != 3 {
-        return Err(MalError::TypeError);
-    }
-    if eval(args[0].clone(), env)?.truthy() {
-        Ok(args[1].clone())
-    } else if args.len() == 3 {
-        Ok(args[2].clone())
+#[builtin_func(name = "if")]
+pub fn if_fn(
+    cond: &Rc<dyn MalType>,
+    body: &Rc<dyn MalType>,
+    ow: std::option::Option<&Rc<dyn MalType>>,
+    env: &Rc<Env>,
+) -> MalResult {
+    if eval(cond.clone(), env)?.truthy() {
+        Ok(body.clone())
+    } else if let Some(ow) = ow {
+        Ok(ow.clone())
     } else {
         Ok(MalNil::new())
     }
 }
 
-pub fn fn_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
-    if args.len() != 2 {
-        return Err(MalError::TypeError);
-    }
-    let arg_names = args[0].as_array()?;
-    MalClojure::try_new(arg_names, args[1].clone(), env.clone())
+#[builtin_func(name = "fn")]
+pub fn fn_fn(names: &Rc<dyn MalType>, body: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    MalClojure::try_new(names.as_array()?, body.clone(), env.clone())
 }
