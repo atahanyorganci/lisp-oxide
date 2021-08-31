@@ -79,6 +79,10 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 ast = mal_if(&list.values()[1..], env)?;
             } else if list.is_special("fn*") {
                 break mal_fn(&list.values()[1..], env);
+            } else if list.is_special("quote") {
+                break mal_quote(&list.values()[1..], env);
+            } else if list.is_special("quasiquote") {
+                break mal_quasiquote(&list.values()[1..], env);
             } else {
                 let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
@@ -204,4 +208,66 @@ pub fn if_fn(
 #[builtin_func(name = "fn")]
 pub fn fn_fn(names: &Rc<dyn MalType>, body: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     MalClojure::try_new(names.as_array()?, body.clone(), env.clone())
+}
+
+#[builtin_func]
+pub fn quote(ast: &Rc<dyn MalType>) -> MalResult {
+    Ok(ast.clone())
+}
+
+#[builtin_func]
+pub fn unquote(ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    eval(ast.clone(), env)
+}
+
+#[builtin_func]
+pub fn quasiquote(to_quote: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    let elems = if let Ok(list) = to_quote.as_type::<MalList>() {
+        if list.is_empty() {
+            return Ok(to_quote.clone());
+        } else if list.is_special("unquote") {
+            return match list.get(1) {
+                Some(ast) => unquote(ast, env),
+                None => Err(MalError::TypeError),
+            };
+        } else {
+            list.values()
+        }
+    } else if let Ok(vector) = to_quote.as_type::<MalVec>() {
+        vector.values()
+    } else {
+        return quote(to_quote);
+    };
+
+    let mut qq = Vec::with_capacity(elems.len());
+    for elem in elems {
+        match elem.as_array() {
+            Ok(arr) if !arr.is_empty() => {
+                if arr[0].is_special("unquote") {
+                    let result = match arr.get(1) {
+                        Some(ast) => eval(ast.clone(), env)?,
+                        None => return Err(MalError::TypeError),
+                    };
+                    qq.push(result);
+                } else if arr[0].is_special("splice-unquote") {
+                    let result = match arr.get(1) {
+                        Some(ast) => eval(ast.clone(), env)?,
+                        None => return Err(MalError::TypeError),
+                    };
+                    let result = result.as_array()?;
+                    for item in result {
+                        qq.push(item.clone());
+                    }
+                } else {
+                    qq.push(elem.clone());
+                }
+            }
+            _ => qq.push(elem.clone()),
+        }
+    }
+    if to_quote.is::<MalList>() {
+        Ok(Rc::from(MalList::from(qq)))
+    } else {
+        Ok(Rc::from(MalVec::from(qq)))
+    }
 }

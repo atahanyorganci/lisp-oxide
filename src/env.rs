@@ -58,6 +58,11 @@ impl Env {
         env.register_func("reset!", &mal_reset);
         env.register_func("swap!", &mal_swap);
 
+        // List functions
+        env.register_func("cons", &mal_cons);
+        env.register_func("concat", &mal_concat);
+        env.register_func("vec", &mal_vec);
+
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
         rep(
             r#"(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))"#,

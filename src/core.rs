@@ -5,7 +5,7 @@ use mal_derive::builtin_func;
 use crate::{
     env::{self, Env},
     eval, read,
-    types::{MalAtom, MalBool, MalInt, MalList, MalNil, MalString, MalType},
+    types::{MalAtom, MalBool, MalInt, MalList, MalNil, MalString, MalType, MalVec},
     MalError, MalResult,
 };
 
@@ -181,4 +181,38 @@ pub fn swap(
 pub fn eval_fn(ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let env = env::global(env);
     eval(ast.clone(), env)
+}
+
+#[builtin_func]
+pub fn cons(elem: &Rc<dyn MalType>, list: &Rc<dyn MalType>) -> MalResult {
+    let arr = list.as_array()?;
+    let mut vec = Vec::with_capacity(arr.len());
+    vec.push(elem.clone());
+    for elem in arr {
+        vec.push(elem.clone());
+    }
+    Ok(Rc::from(MalList::from(vec)))
+}
+
+#[builtin_func]
+pub fn concat(elems: &[Rc<dyn MalType>]) -> MalResult {
+    let mut capacity = 0;
+    for elem in elems {
+        capacity += elem.as_array()?.len();
+    }
+
+    let mut result = Vec::with_capacity(capacity);
+    for elem in elems {
+        let arr = elem.as_array()?;
+        for item in arr {
+            result.push(item.clone());
+        }
+    }
+
+    Ok(Rc::from(MalList::from(result)))
+}
+
+#[builtin_func]
+pub fn vec(list: &Rc<dyn MalType>) -> MalResult {
+    Ok(Rc::from(MalVec::from(Vec::from(list.as_array()?))))
 }
