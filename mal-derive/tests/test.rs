@@ -9,5 +9,6 @@ fn builtin_func_test() {
     t.pass("tests/builtin_func/06-mixed-array.rs");
     t.pass("tests/builtin_func/07-env.rs");
     t.pass("tests/builtin_func/08-attr.rs");
-    t.compile_fail("tests/builtin_func/09-attr-fail.rs")
+    t.compile_fail("tests/builtin_func/09-attr-fail.rs");
+    t.pass("tests/builtin_func/10-option.rs");
 }

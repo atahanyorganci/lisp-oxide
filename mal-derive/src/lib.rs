@@ -56,6 +56,81 @@ impl Parse for BuiltinArgs {
     }
 }
 
+fn is_option(type_path: &syn::TypePath) -> bool {
+    let option = vec![
+        String::from("std"),
+        String::from("option"),
+        String::from("Option"),
+    ];
+    if !compare_segments(type_path, option) {
+        return false;
+    }
+    let last = type_path.path.segments.last().unwrap();
+    if let syn::PathArguments::AngleBracketed(arg) = &last.arguments {
+        if let syn::GenericArgument::Type(generic) = &arg.args[0] {
+            match generic {
+                syn::Type::Reference(tr) => {
+                    if let syn::Type::Path(ty) = tr.elem.as_ref() {
+                        is_rc_mal_type(ty)
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+fn is_rc_mal_type(type_path: &syn::TypePath) -> bool {
+    if !is_rc(type_path) {
+        return false;
+    }
+    let mal_type_path = vec![
+        String::from("mal"),
+        String::from("types"),
+        String::from("MalType"),
+    ];
+    let last = match type_path.path.segments.last() {
+        Some(last) => last,
+        None => return false,
+    };
+    if let syn::PathArguments::AngleBracketed(arg) = &last.arguments {
+        if let syn::GenericArgument::Type(generic) = &arg.args[0] {
+            match generic {
+                syn::Type::TraitObject(tto) => {
+                    if let syn::TypeParamBound::Trait(tb) = &tto.bounds[0] {
+                        let lhs_iter = mal_type_path.iter().rev();
+                        let rhs_iter = tb
+                            .path
+                            .segments
+                            .iter()
+                            .map(|segment| segment.ident.to_string())
+                            .rev();
+                        for (lhs, rhs) in lhs_iter.zip(rhs_iter) {
+                            if lhs.as_str() != rhs.as_str() {
+                                return false;
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 fn is_env(type_path: &syn::TypePath) -> bool {
     if !is_rc(type_path) {
         return false;
@@ -107,6 +182,8 @@ fn compare_segments(type_path: &syn::TypePath, segments: Vec<String>) -> bool {
     true
 }
 
+const TYPE_ERROR_MSG : &str = "Builtin function args should be references to types that implement `MalType`, `&Rc<dyn MalType>`, `Option<&Rc<dyn MalType>>`, or `&Rc<Env>`.";
+
 #[proc_macro_attribute]
 pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as BuiltinArgs);
@@ -122,6 +199,7 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // Gather arg names, and types of the reference from signature
     let mut arg_count = func.sig.inputs.len();
+    let mut optional_count = 0;
     let mut variadic = false;
     let mut arg_names = Vec::with_capacity(arg_count);
     let mut arg_statements = Vec::with_capacity(arg_count);
@@ -143,10 +221,20 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
                     .into();
             }
         };
+        arg_names.push(arg_ident.clone());
+
         let arg_type = match pat_type.ty.as_ref() {
             syn::Type::Reference(reference) => reference.elem.as_ref(),
+            syn::Type::Path(ty) if is_option(ty) => {
+                optional_count += 1;
+                arg_count -= 1;
+                arg_statements.push(quote! {
+                    let #arg_ident = args.get(#index);
+                });
+                continue;
+            }
             _ => {
-                return syn::Error::new(pat_type.ty.span(), "Builtin function args should be references to types that implement `MalType`, `&Rc<dyn MalType>`, or `&Rc<Env>`.")
+                return syn::Error::new(pat_type.ty.span(), TYPE_ERROR_MSG)
                     .to_compile_error()
                     .into();
             }
@@ -174,13 +262,21 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
             _ => {
-                return syn::Error::new(pat_type.ty.span(), "Builtin function args should be references to types that implement `MalType`, `&Rc<dyn MalType>`, or `&Rc<Env>`.")
+                return syn::Error::new(arg_type.span(), TYPE_ERROR_MSG)
                     .to_compile_error()
                     .into();
             }
         };
-        arg_names.push(arg_ident);
         arg_statements.push(arg_statement);
+    }
+
+    if optional_count != 0 && variadic {
+        return syn::Error::new(
+            func.sig.inputs.span(),
+            "Usage of optional and variadic arguments isn't supported.",
+        )
+        .to_compile_error()
+        .into();
     }
 
     // Generate the actual call to the original function
@@ -189,16 +285,26 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     // Generate code to check for function argument count
-    let arg_count_check = if !variadic {
+    let arg_count_check = if !variadic && optional_count == 0 {
         quote! {
             if args.len() != #arg_count {
                 return std::result::Result::Err(MalError::TypeError);
             }
         }
-    } else if arg_count > 1 {
+    } else if variadic && arg_count > 1 {
+        // Variadic functions that don't take positional arguments should not generate check
+        // since every arg is passed to the function
         let actual_arg_count = arg_count - 1;
         quote! {
             if args.len() < #actual_arg_count {
+                return std::result::Result::Err(MalError::TypeError);
+            }
+        }
+    } else if optional_count != 0 {
+        let max_count = arg_count + optional_count;
+        quote! {
+            let len = args.len();
+            if len <  #arg_count || len > #max_count {
                 return std::result::Result::Err(MalError::TypeError);
             }
         }
