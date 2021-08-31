@@ -57,9 +57,9 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
         if let Ok(list) = ast.as_type::<MalList>() {
             if list.is_empty() {
                 break Ok(ast);
-            } else if list[0].is_special("def!") {
+            } else if list.is_special("def!") {
                 break mal_def(&list.values()[1..], env);
-            } else if list[0].is_special("let*") {
+            } else if list.is_special("let*") {
                 let (new_ast, new_env) = mal_let(&list.values()[1..], env)?;
                 ast = new_ast;
                 unsafe {
@@ -73,11 +73,11 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                     outer.as_mut_ptr().write(new_env);
                     env = &*outer.as_ptr();
                 }
-            } else if list[0].is_special("do") {
+            } else if list.is_special("do") {
                 ast = mal_do(&list.values()[1..], env)?;
-            } else if list[0].is_special("if") {
+            } else if list.is_special("if") {
                 ast = mal_if(&list.values()[1..], env)?;
-            } else if list[0].is_special("fn*") {
+            } else if list.is_special("fn*") {
                 break mal_fn(&list.values()[1..], env);
             } else {
                 let new_list = eval_ast(ast, env)?;

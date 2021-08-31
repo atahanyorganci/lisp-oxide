@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{array_equal, MalType};
+use super::{array_equal, MalSymbol, MalType};
 
 pub struct MalList {
     value: Vec<Rc<dyn MalType>>,
@@ -66,6 +66,21 @@ impl MalList {
 
     pub fn values(&self) -> &[Rc<dyn MalType>] {
         self.value.as_slice()
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&Rc<dyn MalType>> {
+        self.value.get(idx)
+    }
+
+    pub fn is_special(&self, name: &'static str) -> bool {
+        if self.is_empty() {
+            return false;
+        }
+        if let Ok(symbol) = self[0].as_type::<MalSymbol>() {
+            symbol == name
+        } else {
+            false
+        }
     }
 }
 
