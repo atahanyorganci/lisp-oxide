@@ -9,7 +9,7 @@ proc-macro = true
 
 [[test]]
 name = "tests"
-path = "tests/progress.rs"
+path = "tests/test.rs"
 
 [dev-dependencies]
 trybuild = { version = "1.0.45", features = ["diff"] }
