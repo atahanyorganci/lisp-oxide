@@ -44,9 +44,11 @@ impl Parse for BuiltinArgs {
                                 ))
                             }
                         }
+                    } else {
+                        return Err(syn::Error::new(var.left.span(), "Unknown attribute."));
                     }
                 }
-                _ => return Err(syn::Error::new(var.left.span(), "Expected `name`")),
+                _ => return Err(syn::Error::new(var.left.span(), "Unknown attribute.")),
             }
         }
 
@@ -125,16 +127,29 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
     let mut arg_statements = Vec::with_capacity(arg_count);
     for (index, arg) in func.sig.inputs.iter().enumerate() {
         let pat_type = match arg {
-            syn::FnArg::Receiver(_) => todo!(),
+            syn::FnArg::Receiver(_) => {
+                return syn::Error::new(arg.span(), "Builtins shouldn't be methods.")
+                    .to_compile_error()
+                    .into();
+            }
             syn::FnArg::Typed(pt) => pt,
         };
         let arg_ident = match pat_type.pat.as_ref() {
             syn::Pat::Ident(pat_ident) => pat_ident.ident.clone(),
-            _ => todo!(),
+            syn::Pat::Wild(_) => Ident::new(format!("_arg{}", index).as_str(), pat_type.pat.span()),
+            _ => {
+                return syn::Error::new(pat_type.pat.span(), "Unrecognized pattern for argument.")
+                    .to_compile_error()
+                    .into();
+            }
         };
         let arg_type = match pat_type.ty.as_ref() {
             syn::Type::Reference(reference) => reference.elem.as_ref(),
-            _ => todo!(),
+            _ => {
+                return syn::Error::new(pat_type.ty.span(), "Builtin function args should be references to types that implement `MalType`, `&Rc<dyn MalType>`, or `&Rc<Env>`.")
+                    .to_compile_error()
+                    .into();
+            }
         };
         let arg_statement = match arg_type {
             syn::Type::Path(ty) if is_env(ty) => {
@@ -158,7 +173,11 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
                     let #arg_ident = &args[#index..];
                 }
             }
-            _ => todo!(),
+            _ => {
+                return syn::Error::new(pat_type.ty.span(), "Builtin function args should be references to types that implement `MalType`, `&Rc<dyn MalType>`, or `&Rc<Env>`.")
+                    .to_compile_error()
+                    .into();
+            }
         };
         arg_names.push(arg_ident);
         arg_statements.push(arg_statement);
