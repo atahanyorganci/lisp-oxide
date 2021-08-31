@@ -11,4 +11,5 @@ fn builtin_func_test() {
     t.pass("tests/builtin_func/08-attr.rs");
     t.compile_fail("tests/builtin_func/09-attr-fail.rs");
     t.pass("tests/builtin_func/10-option.rs");
+    t.pass("tests/builtin_func/11-return-type.rs");
 }

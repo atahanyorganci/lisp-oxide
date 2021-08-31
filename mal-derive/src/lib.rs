@@ -197,6 +197,9 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
         Ident::new(&format!("mal_{}", original_name), original_name.span())
     };
 
+    // Return type of the builtin function
+    let return_type = &func.sig.output;
+
     // Gather arg names, and types of the reference from signature
     let mut arg_count = func.sig.inputs.len();
     let mut optional_count = 0;
@@ -315,7 +318,7 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
     let generated = quote! {
         #func
 
-        pub fn #builtin_name(args: &[std::rc::Rc<dyn MalType>], env: &std::rc::Rc<Env>) -> MalResult {
+        pub fn #builtin_name(args: &[std::rc::Rc<dyn MalType>], env: &std::rc::Rc<Env>) #return_type {
             #arg_count_check
             #(#arg_statements)*
             #actual_call
