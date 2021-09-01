@@ -32,7 +32,13 @@ pub trait MalType: Display + Debug + Any {
 impl dyn MalType {
     pub fn as_type<T: 'static>(&self) -> Result<&T, MalError> {
         match self.as_any().downcast_ref::<T>() {
-            Some(int) => Ok(int),
+            Some(inner) => Ok(inner),
+            None => Err(MalError::TypeError),
+        }
+    }
+    pub fn as_type_mut<T: 'static>(&mut self) -> Result<&mut T, MalError> {
+        match self.as_any_mut().downcast_mut::<T>() {
+            Some(inner) => Ok(inner),
             None => Err(MalError::TypeError),
         }
     }

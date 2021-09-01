@@ -56,6 +56,10 @@ impl Index<usize> for MalList {
 }
 
 impl MalList {
+    pub fn new() -> Self {
+        Self { value: Vec::new() }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }

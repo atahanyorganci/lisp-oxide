@@ -1,19 +1,41 @@
 use std::{
     any::Any,
+    convert::TryInto,
     fmt::{Debug, Display},
+    num::TryFromIntError,
     ops::{Add, Div, Mul, Sub},
 };
 
 use super::MalType;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct MalInt {
     value: i64,
 }
 
-impl From<i64> for MalInt {
-    fn from(value: i64) -> Self {
-        MalInt { value }
+impl<T> From<T> for MalInt
+where
+    T: Into<i64>,
+{
+    fn from(value: T) -> Self {
+        Self {
+            value: value.into(),
+        }
+    }
+}
+
+impl TryInto<u64> for MalInt {
+    type Error = TryFromIntError;
+
+    fn try_into(self) -> Result<u64, Self::Error> {
+        self.value.try_into()
+    }
+}
+impl TryInto<usize> for MalInt {
+    type Error = TryFromIntError;
+
+    fn try_into(self) -> Result<usize, Self::Error> {
+        self.value.try_into()
     }
 }
 
