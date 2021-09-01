@@ -21,6 +21,7 @@ pub enum MalError {
     TypeError,
     Unimplemented,
     IOError,
+    IndexOutOfRange,
 }
 
 impl Display for MalError {
@@ -33,6 +34,7 @@ impl Display for MalError {
             MalError::TypeError => write!(f, "type error"),
             MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
             MalError::IOError => write!(f, "IO Error"),
+            MalError::IndexOutOfRange => write!(f, "Index out of range."),
         }
     }
 }
@@ -52,11 +54,14 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
     let mut init = false;
     let mut outer: MaybeUninit<Rc<Env>> = MaybeUninit::uninit();
     let result = loop {
+        ast = macro_expand(ast, env)?;
         if let Ok(list) = ast.as_type::<MalList>() {
             if list.is_empty() {
                 break Ok(ast);
             } else if list.is_special("def!") {
                 break mal_def(&list.values()[1..], env);
+            } else if list.is_special("defmacro!") {
+                break mal_defmacro(&list.values()[1..], env);
             } else if list.is_special("let*") {
                 let (new_ast, new_env) = mal_let(&list.values()[1..], env)?;
                 ast = new_ast;
@@ -70,6 +75,12 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                     outer = MaybeUninit::uninit();
                     outer.as_mut_ptr().write(new_env);
                     env = &*outer.as_ptr();
+                }
+            } else if list.is_special("macroexpand") {
+                if let Some(ast) = list.get(1) {
+                    break macro_expand(ast.clone(), env);
+                } else {
+                    return Err(MalError::TypeError);
                 }
             } else if list.is_special("do") {
                 ast = mal_do(&list.values()[1..], env)?;
@@ -268,4 +279,47 @@ pub fn quasiquote(to_quote: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     } else {
         Ok(Rc::from(MalVec::from(qq)))
     }
+}
+
+#[builtin_func(name = "defmacro", special)]
+pub fn defmacro_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    let mut value = eval(ast.clone(), env)?;
+    match Rc::get_mut(&mut value) {
+        Some(value) => value.as_type_mut::<MalClojure>()?.set_macro(),
+        None => unreachable!(),
+    }
+    env.set(symbol, value.clone())?;
+    Ok(value)
+}
+
+pub fn is_macro_call(list: &MalList, env: &Rc<Env>) -> bool {
+    if !list.is_empty() {
+        let symbol = match list[0].as_type::<MalSymbol>() {
+            Ok(s) => s,
+            _ => return false,
+        };
+        match env.get(symbol) {
+            Ok(maybe_clojure) => match maybe_clojure.as_type::<MalClojure>() {
+                Ok(clojure) => clojure.is_macro(),
+                Err(_) => false,
+            },
+            Err(_) => false,
+        }
+    } else {
+        false
+    }
+}
+
+pub fn macro_expand(mut ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    while let Ok(call) = ast.as_type::<MalList>() {
+        if !is_macro_call(call, env) {
+            break;
+        }
+        let symbol = call[0].as_type()?;
+        let lookup = env.get(symbol).unwrap();
+        let macro_clojure = lookup.as_type::<MalClojure>().unwrap();
+        let (new_ast, new_env) = macro_clojure.call(&call.values()[1..], env)?;
+        ast = eval(new_ast, &new_env)?;
+    }
+    Ok(ast)
 }

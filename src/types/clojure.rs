@@ -12,6 +12,7 @@ pub struct MalClojure {
     arg_symbols: Vec<Rc<dyn MalType>>,
     body: Rc<dyn MalType>,
     outer: Rc<Env>,
+    is_macro: bool,
 }
 
 impl Debug for MalClojure {
@@ -52,7 +53,16 @@ impl MalClojure {
             arg_symbols,
             body,
             outer,
+            is_macro: false,
         }))
+    }
+
+    pub fn set_macro(&mut self) {
+        self.is_macro = true;
+    }
+
+    pub fn is_macro(&self) -> bool {
+        self.is_macro
     }
 }
 
@@ -66,31 +76,36 @@ impl MalClojure {
 
         for i in 0..self.arg_symbols.len() {
             let symbol = match self.arg_symbols.get(i) {
-                Some(symbol) => symbol,
+                Some(symbol) => symbol.as_type()?,
                 None => return Err(MalError::TypeError),
             };
-            if symbol.as_type::<MalSymbol>()? == "&" {
+            if symbol == "&" {
                 // If current symbol is `&` then next symbol should capture rest of expressions as list
                 let symbol = match self.arg_symbols.get(i + 1) {
-                    Some(symbol) => symbol,
+                    Some(symbol) => symbol.as_type()?,
                     None => return Err(MalError::TypeError),
                 };
-                let value = MalClojure::eval_slice(&arg_exprs[i..], env)?;
+                let value = if self.is_macro() {
+                    let variadic: Vec<_> = arg_exprs[i..].iter().cloned().collect();
+                    Rc::from(MalList::from(variadic))
+                } else {
+                    MalClojure::get_variadic_args(&arg_exprs[i..], env)?
+                };
                 current.set(symbol, value)?;
                 break;
             } else {
-                let expr = match arg_exprs.get(i) {
-                    Some(expr) => expr,
+                let value = match arg_exprs.get(i) {
+                    Some(expr) if self.is_macro => expr.clone(),
+                    Some(expr) => eval(expr.clone(), env)?,
                     None => return Err(MalError::TypeError),
                 };
-                let value = eval(expr.clone(), env)?;
                 current.set(symbol, value)?;
             }
         }
         Ok((self.body.clone(), current))
     }
 
-    fn eval_slice(slice: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    fn get_variadic_args(slice: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
         let mut vector = Vec::with_capacity(slice.len());
         for expr in slice {
             vector.push(eval(expr.clone(), env)?);

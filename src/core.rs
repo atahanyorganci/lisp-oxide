@@ -1,4 +1,4 @@
-use std::{fmt::Write, fs, rc::Rc};
+use std::{convert::TryInto, fmt::Write, fs, rc::Rc};
 
 use mal_derive::builtin_func;
 
@@ -217,4 +217,45 @@ pub fn concat(elems: &[Rc<dyn MalType>]) -> MalResult {
 #[builtin_func]
 pub fn vec(list: &Rc<dyn MalType>) -> MalResult {
     Ok(Rc::from(MalVec::from(Vec::from(list.as_array()?))))
+}
+
+#[builtin_func]
+pub fn nth(arr: &Rc<dyn MalType>, idx: &MalInt) -> MalResult {
+    let arr = arr.as_array()?;
+    let idx: usize = match (*idx).try_into() {
+        Ok(idx) => idx,
+        Err(_) => return Err(MalError::TypeError),
+    };
+    match arr.get(idx) {
+        Some(result) => Ok(result.clone()),
+        None => Err(MalError::IndexOutOfRange),
+    }
+}
+
+#[builtin_func]
+pub fn first(list_or_vec: &Rc<dyn MalType>) -> MalResult {
+    if let Ok(arr) = list_or_vec.as_array() {
+        match arr.get(0) {
+            Some(result) => Ok(result.clone()),
+            None => Ok(MalNil::new()),
+        }
+    } else if list_or_vec.is::<MalNil>() {
+        Ok(list_or_vec.clone())
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+#[builtin_func]
+pub fn rest(list_or_vec: &Rc<dyn MalType>) -> MalResult {
+    if list_or_vec.is::<MalNil>() {
+        return Ok(Rc::from(MalList::new()));
+    }
+    let arr = list_or_vec.as_array()?;
+    if arr.is_empty() {
+        Ok(Rc::from(MalList::new()))
+    } else {
+        let r: Vec<_> = arr.iter().skip(1).cloned().collect();
+        Ok(Rc::from(MalList::from(r)))
+    }
 }
