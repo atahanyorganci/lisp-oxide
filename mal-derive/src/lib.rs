@@ -7,48 +7,105 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     spanned::Spanned,
-    ExprAssign, Ident, ItemFn, Token,
+    Ident, ItemFn, Lit, Token,
 };
 
-#[derive(Debug, Default)]
+enum BuiltinArg {
+    Flag(Ident),
+    Value(Ident, Lit),
+}
+
+impl Parse for BuiltinArg {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        let ident = if lookahead.peek(Ident) {
+            input.parse::<Ident>()?
+        } else {
+            return Err(lookahead.error());
+        };
+        if input.is_empty() {
+            Ok(Self::Flag(ident))
+        } else {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Token![=]) {
+                input.parse::<syn::token::Eq>().unwrap();
+            } else {
+                return Err(lookahead.error());
+            }
+            let lookahead = input.lookahead1();
+            let lit = if lookahead.peek(Lit) {
+                input.parse::<syn::Lit>().unwrap()
+            } else {
+                return Err(lookahead.error());
+            };
+            Ok(Self::Value(ident, lit))
+        }
+    }
+}
+
+#[derive(Debug)]
 struct BuiltinArgs {
     name: Option<Ident>,
+    symbol: Option<syn::LitStr>,
+    special: bool,
+}
+
+impl Default for BuiltinArgs {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            symbol: Default::default(),
+            special: false,
+        }
+    }
 }
 
 impl Parse for BuiltinArgs {
     fn parse(input: ParseStream) -> Result<Self, syn::Error> {
         let mut args = Self::default();
-        let vars = Punctuated::<ExprAssign, Token![,]>::parse_terminated(input)?;
+        let vars = Punctuated::<BuiltinArg, Token![,]>::parse_terminated(input)?;
         for var in vars {
-            match var.left.as_ref() {
-                syn::Expr::Path(ep) if ep.path.segments.len() == 1 => {
-                    let rhs = &ep.path.segments[0];
-                    if rhs.ident == "name" {
-                        match var.right.as_ref() {
-                            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
-                                syn::Lit::Str(s) => {
-                                    let ident = Ident::new(&s.value(), s.span());
-                                    args.name = Some(ident);
-                                }
-                                _ => {
-                                    return Err(syn::Error::new(
-                                        var.right.span(),
-                                        "Name attribute expects string value.",
-                                    ))
-                                }
-                            },
+            match &var {
+                BuiltinArg::Flag(ident) => {
+                    if ident == "special" {
+                        args.special = true;
+                    } else {
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            format!("Unknown flag `{}`.", ident),
+                        ));
+                    }
+                }
+                BuiltinArg::Value(ident, lit) => {
+                    if ident == "name" {
+                        let name = match lit {
+                            Lit::Str(s) => Ident::new(&s.value(), s.span()),
                             _ => {
                                 return Err(syn::Error::new(
-                                    var.right.span(),
+                                    lit.span(),
                                     "Name attribute expects string value.",
                                 ))
                             }
-                        }
+                        };
+                        args.name = Some(name);
+                    } else if ident == "symbol" {
+                        let symbol = match lit {
+                            Lit::Str(s) => s.clone(),
+                            _ => {
+                                return Err(syn::Error::new(
+                                    lit.span(),
+                                    "Symbol attribute expects string value.",
+                                ))
+                            }
+                        };
+                        args.symbol = Some(symbol.clone());
                     } else {
-                        return Err(syn::Error::new(var.left.span(), "Unknown attribute."));
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            format!("Unknown attribute `{}`.", ident),
+                        ));
                     }
                 }
-                _ => return Err(syn::Error::new(var.left.span(), "Unknown attribute.")),
             }
         }
 
@@ -189,12 +246,30 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as BuiltinArgs);
     let func = parse_macro_input!(input as ItemFn);
 
-    // Generated builtin functions name is `mal_{func}`
+    // Generated builtin functions name is `mal_{name}`
+    // Name value can be set using `name = "renamed"` attribute
     let original_name = &func.sig.ident;
-    let builtin_name = if let Some(name) = args.name {
-        Ident::new(&format!("mal_{}", name), name.span())
+    let name = if let Some(name) = &args.name {
+        name
     } else {
-        Ident::new(&format!("mal_{}", original_name), original_name.span())
+        original_name
+    };
+    let builtin = format!("mal_{}", name);
+    let builtin_name = Ident::new(&builtin, name.span());
+    let pair_name = Ident::new(&builtin.to_uppercase(), name.span());
+
+    // Symbol for env
+    let pair = if !args.special {
+        let symbol = if let Some(symbol) = args.symbol {
+            symbol
+        } else {
+            syn::LitStr::new(&name.to_string(), name.span())
+        };
+        quote! {
+            pub const #pair_name: (&'static str, &'static MalFuncPtr) = (#symbol, &#builtin_name);
+        }
+    } else {
+        quote! {}
     };
 
     // Return type of the builtin function
@@ -317,13 +392,12 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let generated = quote! {
         #func
-
         pub fn #builtin_name(args: &[std::rc::Rc<dyn MalType>], env: &std::rc::Rc<Env>) #return_type {
             #arg_count_check
             #(#arg_statements)*
             #actual_call
         }
-
+        #pair
     };
     generated.into()
 }
