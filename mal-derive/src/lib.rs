@@ -124,16 +124,11 @@ fn is_option(type_path: &syn::TypePath) -> bool {
     }
     let last = type_path.path.segments.last().unwrap();
     if let syn::PathArguments::AngleBracketed(arg) = &last.arguments {
-        if let syn::GenericArgument::Type(generic) = &arg.args[0] {
-            match generic {
-                syn::Type::Reference(tr) => {
-                    if let syn::Type::Path(ty) = tr.elem.as_ref() {
-                        is_rc_mal_type(ty)
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
+        if let syn::GenericArgument::Type(syn::Type::Reference(tr)) = &arg.args[0] {
+            if let syn::Type::Path(ty) = tr.elem.as_ref() {
+                is_rc_mal_type(ty)
+            } else {
+                false
             }
         } else {
             false
@@ -157,28 +152,23 @@ fn is_rc_mal_type(type_path: &syn::TypePath) -> bool {
         None => return false,
     };
     if let syn::PathArguments::AngleBracketed(arg) = &last.arguments {
-        if let syn::GenericArgument::Type(generic) = &arg.args[0] {
-            match generic {
-                syn::Type::TraitObject(tto) => {
-                    if let syn::TypeParamBound::Trait(tb) = &tto.bounds[0] {
-                        let lhs_iter = mal_type_path.iter().rev();
-                        let rhs_iter = tb
-                            .path
-                            .segments
-                            .iter()
-                            .map(|segment| segment.ident.to_string())
-                            .rev();
-                        for (lhs, rhs) in lhs_iter.zip(rhs_iter) {
-                            if lhs.as_str() != rhs.as_str() {
-                                return false;
-                            }
-                        }
-                        true
-                    } else {
-                        false
+        if let syn::GenericArgument::Type(syn::Type::TraitObject(tto)) = &arg.args[0] {
+            if let syn::TypeParamBound::Trait(tb) = &tto.bounds[0] {
+                let lhs_iter = mal_type_path.iter().rev();
+                let rhs_iter = tb
+                    .path
+                    .segments
+                    .iter()
+                    .map(|segment| segment.ident.to_string())
+                    .rev();
+                for (lhs, rhs) in lhs_iter.zip(rhs_iter) {
+                    if lhs.as_str() != rhs.as_str() {
+                        return false;
                     }
                 }
-                _ => false,
+                true
+            } else {
+                false
             }
         } else {
             false
@@ -202,11 +192,8 @@ fn is_env(type_path: &syn::TypePath) -> bool {
         None => return false,
     };
     if let syn::PathArguments::AngleBracketed(arg) = &last.arguments {
-        if let syn::GenericArgument::Type(generic) = &arg.args[0] {
-            match generic {
-                syn::Type::Path(path) => compare_segments(path, env),
-                _ => false,
-            }
+        if let syn::GenericArgument::Type(syn::Type::Path(path)) = &arg.args[0] {
+            compare_segments(path, env)
         } else {
             false
         }
@@ -379,10 +366,9 @@ pub fn builtin_func(attr: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
     } else if optional_count != 0 {
-        let max_count = arg_count + optional_count;
+        let max_count = arg_count + optional_count + 1;
         quote! {
-            let len = args.len();
-            if len <  #arg_count || len > #max_count {
+            if !(#arg_count..#max_count).contains(&args.len()) {
                 return std::result::Result::Err(MalError::TypeError);
             }
         }
