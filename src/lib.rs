@@ -3,9 +3,7 @@ use std::{collections::HashMap, fmt::Display, mem::MaybeUninit, rc::Rc};
 use env::Env;
 use mal_derive::builtin_func;
 use reader::Reader;
-use types::{MalClojure, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec};
-
-use crate::types::MalFunc;
+use types::{MalClojure, MalFunc, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec};
 
 pub mod core;
 pub mod env;
@@ -142,21 +140,21 @@ pub fn eval_ast(ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
             result.insert(key.to_string(), eval(value.clone(), env)?);
         }
         Ok(Rc::from(MalHashMap::from(result)))
-    } else if ast.is::<MalSymbol>() {
-        env.get(ast)
+    } else if let Ok(symbol) = ast.as_type() {
+        env.get(symbol)
     } else {
         Ok(ast)
     }
 }
 
-#[builtin_func(name = "def")]
-pub fn def_fn(symbol: &Rc<dyn MalType>, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+#[builtin_func(name = "def", symbol = "def!", special)]
+pub fn def_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let value = eval(ast.clone(), env)?;
     env.set(symbol, value.clone())?;
     Ok(value)
 }
 
-#[builtin_func(name = "let")]
+#[builtin_func(name = "let", symbol = "let*", special)]
 pub fn let_fn(
     bindings: &Rc<dyn MalType>,
     ast: &Rc<dyn MalType>,
@@ -170,14 +168,14 @@ pub fn let_fn(
     let new_env = Env::with_outer(env.clone());
     let pair_count = env_list.len() / 2;
     for i in 0..pair_count {
-        let symbol = env_list[2 * i].clone();
+        let symbol = env_list[2 * i].as_type()?;
         let value = eval(env_list[2 * i + 1].clone(), &new_env)?;
-        new_env.set(&symbol, value.clone())?;
+        new_env.set(symbol, value.clone())?;
     }
     Ok((ast.clone(), new_env))
 }
 
-#[builtin_func(name = "do")]
+#[builtin_func(name = "do", special)]
 pub fn do_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     if args.is_empty() {
         return Err(MalError::TypeError);
@@ -189,7 +187,7 @@ pub fn do_fn(args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
     Ok(args[len - 1].clone())
 }
 
-#[builtin_func(name = "if")]
+#[builtin_func(name = "if", special)]
 pub fn if_fn(
     cond: &Rc<dyn MalType>,
     body: &Rc<dyn MalType>,
@@ -205,22 +203,22 @@ pub fn if_fn(
     }
 }
 
-#[builtin_func(name = "fn")]
+#[builtin_func(name = "fn", symbol = "fn*", special)]
 pub fn fn_fn(names: &Rc<dyn MalType>, body: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     MalClojure::try_new(names.as_array()?, body.clone(), env.clone())
 }
 
-#[builtin_func]
+#[builtin_func(special)]
 pub fn quote(ast: &Rc<dyn MalType>) -> MalResult {
     Ok(ast.clone())
 }
 
-#[builtin_func]
+#[builtin_func(special)]
 pub fn unquote(ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     eval(ast.clone(), env)
 }
 
-#[builtin_func]
+#[builtin_func(special)]
 pub fn quasiquote(to_quote: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let elems = if let Ok(list) = to_quote.as_type::<MalList>() {
         if list.is_empty() {

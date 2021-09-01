@@ -25,43 +25,38 @@ impl Default for Env {
 impl Env {
     pub fn new() -> Rc<Self> {
         let env = Rc::from(Self::default());
-        // Numeric functions
-        env.register_func("+", &mal_add);
-        env.register_func("-", &mal_subtract);
-        env.register_func("*", &mal_multiply);
-        env.register_func("/", &mal_divide);
-        env.register_func("=", &mal_equal);
-        env.register_func(">", &mal_gt);
-        env.register_func(">=", &mal_geq);
-        env.register_func("<", &mal_lt);
-        env.register_func("<=", &mal_leq);
 
-        // List functions
-        env.register_func("list", &mal_list);
-        env.register_func("list?", &mal_is_list);
-        env.register_func("empty?", &mal_is_empty);
-        env.register_func("count", &mal_count);
-
-        // String functions
-        env.register_func("eval", &mal_eval);
-        env.register_func("prn", &mal_prn);
-        env.register_func("pr-str", &mal_pr_str);
-        env.register_func("str", &mal_str);
-        env.register_func("println", &mal_println);
-        env.register_func("read-string", &mal_read_string);
-        env.register_func("slurp", &mal_slurp);
-
-        // Atom functions
-        env.register_func("atom", &mal_atom);
-        env.register_func("atom?", &mal_is_atom);
-        env.register_func("deref", &mal_deref);
-        env.register_func("reset!", &mal_reset);
-        env.register_func("swap!", &mal_swap);
-
-        // List functions
-        env.register_func("cons", &mal_cons);
-        env.register_func("concat", &mal_concat);
-        env.register_func("vec", &mal_vec);
+        env.register(MAL_ADD);
+        env.register(MAL_SUBTRACT);
+        env.register(MAL_MULTIPLY);
+        env.register(MAL_DIVIDE);
+        env.register(MAL_PRN);
+        env.register(MAL_PRINTLN);
+        env.register(MAL_LIST);
+        env.register(MAL_IS_LIST);
+        env.register(MAL_IS_EMPTY);
+        env.register(MAL_COUNT);
+        env.register(MAL_EQUAL);
+        env.register(MAL_LT);
+        env.register(MAL_LEQ);
+        env.register(MAL_GT);
+        env.register(MAL_GEQ);
+        env.register(MAL_PR_STR);
+        env.register(MAL_STR);
+        env.register(MAL_READ_STRING);
+        env.register(MAL_SLURP);
+        env.register(MAL_ATOM);
+        env.register(MAL_IS_ATOM);
+        env.register(MAL_DEREF);
+        env.register(MAL_RESET);
+        env.register(MAL_SWAP);
+        env.register(MAL_EVAL);
+        env.register(MAL_CONS);
+        env.register(MAL_CONCAT);
+        env.register(MAL_VEC);
+        env.register(MAL_NTH);
+        env.register(MAL_FIRST);
+        env.register(MAL_REST);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
         rep(
@@ -82,15 +77,17 @@ impl Env {
             .collect();
 
         let argv = Rc::from(MalList::from(argv));
-        let symbol: Rc<dyn MalType> = Rc::from(MalSymbol::from("*ARGV*"));
+        let symbol = MalSymbol::from("*ARGV*");
         self.set(&symbol, argv).unwrap();
     }
 
-    pub fn get(&self, obj: Rc<dyn MalType>) -> MalResult {
-        let symbol = obj.as_type::<MalSymbol>()?;
+    pub fn get(&self, symbol: &MalSymbol) -> MalResult {
         match self.get_impl(symbol) {
             Some(value) => Ok(value),
-            None => Err(MalError::NotFound(obj.clone())),
+            None => {
+                let not_found = Rc::from(symbol.clone());
+                Err(MalError::NotFound(not_found))
+            }
         }
     }
 
@@ -104,8 +101,7 @@ impl Env {
         }
     }
 
-    pub fn set(&self, symbol: &Rc<dyn MalType>, value: Rc<dyn MalType>) -> Result<(), MalError> {
-        let symbol = symbol.as_type::<MalSymbol>()?;
+    pub fn set(&self, symbol: &MalSymbol, value: Rc<dyn MalType>) -> Result<(), MalError> {
         // FIXME: Find a way to avoid allocation
         self.env.borrow_mut().insert(symbol.clone(), value);
         Ok(())
@@ -125,6 +121,11 @@ impl Env {
             self.env.borrow_mut().insert(symbol.clone(), value.clone());
         }
         Ok(())
+    }
+
+    fn register(&self, pair: (&'static str, &'static MalFuncPtr)) {
+        let (name, ptr) = pair;
+        self.register_func(name, ptr);
     }
 
     fn register_func(&self, name: &'static str, ptr: &'static MalFuncPtr) {

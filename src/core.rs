@@ -5,26 +5,28 @@ use mal_derive::builtin_func;
 use crate::{
     env::{self, Env},
     eval, read,
-    types::{MalAtom, MalBool, MalInt, MalList, MalNil, MalString, MalType, MalVec},
+    types::{
+        func::MalFuncPtr, MalAtom, MalBool, MalInt, MalList, MalNil, MalString, MalType, MalVec,
+    },
     MalError, MalResult,
 };
 
-#[builtin_func]
+#[builtin_func(symbol = "+")]
 pub fn add(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(lhs + rhs))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "-")]
 pub fn subtract(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(lhs - rhs))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "*")]
 pub fn multiply(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(lhs * rhs))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "/")]
 pub fn divide(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(lhs / rhs))
 }
@@ -58,12 +60,12 @@ pub fn list(args: &[Rc<dyn MalType>]) -> MalResult {
     Ok(Rc::from(MalList::from(Vec::from(args))))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "list?")]
 pub fn is_list(obj: &dyn MalType) -> MalResult {
     Ok(Rc::from(MalBool::from(obj.is::<MalList>())))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "empty?")]
 pub fn is_empty(obj: &dyn MalType) -> MalResult {
     let value = match obj.as_array() {
         Ok(arr) => arr.is_empty(),
@@ -81,32 +83,32 @@ pub fn count(obj: &dyn MalType) -> MalResult {
     Ok(Rc::from(MalInt::from(value)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "=")]
 pub fn equal(lhs: &dyn MalType, rhs: &dyn MalType) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs.equal(rhs))))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "<")]
 pub fn lt(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs < rhs)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "<=")]
 pub fn leq(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs <= rhs)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = ">")]
 pub fn gt(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs > rhs)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = ">=")]
 pub fn geq(lhs: &MalInt, rhs: &MalInt) -> MalResult {
     Ok(Rc::from(MalBool::from(lhs >= rhs)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "pr-str")]
 pub fn pr_str(args: &[Rc<dyn MalType>]) -> MalResult {
     let mut string = String::new();
     if !args.is_empty() {
@@ -127,7 +129,7 @@ pub fn str_fn(args: &[Rc<dyn MalType>]) -> MalResult {
     Ok(Rc::from(MalString::from(string)))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "read-string")]
 pub fn read_string(string: &MalString) -> MalResult {
     read(string.as_str())
 }
@@ -145,7 +147,7 @@ pub fn atom(value: &Rc<dyn MalType>) -> MalResult {
     Ok(Rc::from(MalAtom::from(value.clone())))
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "atom?")]
 pub fn is_atom(obj: &dyn MalType) -> MalResult {
     Ok(Rc::from(MalBool::from(obj.is::<MalAtom>())))
 }
@@ -155,13 +157,13 @@ pub fn deref(atom: &MalAtom) -> MalResult {
     Ok(atom.value())
 }
 
-#[builtin_func]
+#[builtin_func(symbol = "reset!")]
 pub fn reset(atom: &MalAtom, new_value: &Rc<dyn MalType>) -> MalResult {
     atom.replace(new_value.clone());
     Ok(atom.value())
 }
 
-#[builtin_func(name = "swap")]
+#[builtin_func(symbol = "swap!")]
 pub fn swap(
     atom: &MalAtom,
     callable: &Rc<dyn MalType>,
