@@ -91,7 +91,7 @@ impl MalClojure {
                 } else {
                     MalClojure::get_variadic_args(&arg_exprs[i..], env)?
                 };
-                current.set(symbol, value)?;
+                current.set(symbol, value);
                 break;
             } else {
                 let value = match arg_exprs.get(i) {
@@ -99,7 +99,7 @@ impl MalClojure {
                     Some(expr) => eval(expr.clone(), env)?,
                     None => return Err(MalError::TypeError),
                 };
-                current.set(symbol, value)?;
+                current.set(symbol, value);
             }
         }
         Ok((self.body.clone(), current))

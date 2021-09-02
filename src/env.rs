@@ -79,7 +79,7 @@ impl Env {
 
         let argv = Rc::from(MalList::from(argv));
         let symbol = MalSymbol::from("*ARGV*");
-        self.set(&symbol, argv).unwrap();
+        self.set(&symbol, argv);
     }
 
     pub fn get(&self, symbol: &MalSymbol) -> MalResult {
@@ -102,10 +102,9 @@ impl Env {
         }
     }
 
-    pub fn set(&self, symbol: &MalSymbol, value: Rc<dyn MalType>) -> Result<(), MalError> {
+    pub fn set(&self, symbol: &MalSymbol, value: Rc<dyn MalType>) {
         // FIXME: Find a way to avoid allocation
         self.env.borrow_mut().insert(symbol.clone(), value);
-        Ok(())
     }
 
     pub fn init(

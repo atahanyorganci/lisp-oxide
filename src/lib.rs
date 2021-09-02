@@ -161,7 +161,7 @@ pub fn eval_ast(ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
 #[builtin_func(name = "def", symbol = "def!", special)]
 pub fn def_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let value = eval(ast.clone(), env)?;
-    env.set(symbol, value.clone())?;
+    env.set(symbol, value.clone());
     Ok(value)
 }
 
@@ -181,7 +181,7 @@ pub fn let_fn(
     for i in 0..pair_count {
         let symbol = env_list[2 * i].as_type()?;
         let value = eval(env_list[2 * i + 1].clone(), &new_env)?;
-        new_env.set(symbol, value.clone())?;
+        new_env.set(symbol, value.clone());
     }
     Ok((ast.clone(), new_env))
 }
@@ -288,7 +288,7 @@ pub fn defmacro_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> 
         Some(value) => value.as_type_mut::<MalClojure>()?.set_macro(),
         None => unreachable!(),
     }
-    env.set(symbol, value.clone())?;
+    env.set(symbol, value.clone());
     Ok(value)
 }
 
