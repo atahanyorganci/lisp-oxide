@@ -6,7 +6,8 @@ use crate::{
     env::{self, Env},
     eval, read,
     types::{
-        func::MalFuncPtr, MalAtom, MalBool, MalInt, MalList, MalNil, MalString, MalType, MalVec,
+        func::MalFuncPtr, MalAtom, MalBool, MalClojure, MalFunc, MalHashMap, MalInt, MalKeyword,
+        MalList, MalNil, MalString, MalSymbol, MalType, MalVec,
     },
     MalError, MalResult,
 };
@@ -258,4 +259,198 @@ pub fn rest(list_or_vec: &Rc<dyn MalType>) -> MalResult {
         let r: Vec<_> = arr.iter().skip(1).cloned().collect();
         Ok(Rc::from(MalList::from(r)))
     }
+}
+
+#[builtin_func]
+pub fn throw(value: &Rc<dyn MalType>) -> MalResult {
+    Err(MalError::Exception(value.clone()))
+}
+
+#[builtin_func]
+pub fn apply(func: &Rc<dyn MalType>, args: &[Rc<dyn MalType>], env: &Rc<Env>) -> MalResult {
+    if args.is_empty() {
+        return Err(MalError::TypeError);
+    }
+    let len = args.len();
+    let regular_args = &args[0..len - 1];
+    let list_args = match args.last().unwrap().as_array() {
+        Ok(arr) => arr,
+        Err(_) => return Err(MalError::TypeError),
+    };
+    let args: Vec<_> = regular_args.iter().chain(list_args).cloned().collect();
+    if let Ok(func) = func.as_type::<MalFunc>() {
+        func.call(&args, env)
+    } else if let Ok(clojure) = func.as_type::<MalClojure>() {
+        let (ast, env) = clojure.call(&args, env)?;
+        eval(ast, &env)
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+#[builtin_func]
+pub fn map(func: &Rc<dyn MalType>, args: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
+    let arr = args.as_array()?;
+    let len = arr.len();
+    let mut result = Vec::with_capacity(len);
+
+    if let Ok(func) = func.as_type::<MalFunc>() {
+        for i in 0..len {
+            result.push(func.call(&arr[i..i + 1], env)?);
+        }
+    } else if let Ok(clojure) = func.as_type::<MalClojure>() {
+        for i in 0..len {
+            let (ast, env) = clojure.call(&arr[i..i + 1], env)?;
+            result.push(eval(ast, &env)?);
+        }
+    } else {
+        return Err(MalError::TypeError);
+    }
+    Ok(Rc::from(MalList::from(result)))
+}
+
+#[builtin_func(symbol = "nil?")]
+pub fn is_nil(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalNil>())))
+}
+
+#[builtin_func(symbol = "true?")]
+pub fn is_true(obj: &dyn MalType) -> MalResult {
+    match obj.as_type::<MalBool>() {
+        Ok(b) => Ok(Rc::from(MalBool::from(b.value()))),
+        Err(_) => Ok(Rc::from(MalBool::from(false))),
+    }
+}
+
+#[builtin_func(symbol = "false?")]
+pub fn is_false(obj: &dyn MalType) -> MalResult {
+    match obj.as_type::<MalBool>() {
+        Ok(b) => Ok(Rc::from(MalBool::from(!b.value()))),
+        Err(_) => Ok(Rc::from(MalBool::from(false))),
+    }
+}
+
+#[builtin_func(symbol = "symbol?")]
+pub fn is_symbol(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalSymbol>())))
+}
+
+#[builtin_func]
+pub fn symbol(string: &MalString) -> MalResult {
+    Ok(Rc::from(MalSymbol::from(string.as_str())))
+}
+
+#[builtin_func(symbol = "keyword?")]
+pub fn is_keyword(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalKeyword>())))
+}
+
+#[builtin_func]
+pub fn keyword(arg: &Rc<dyn MalType>) -> MalResult {
+    if arg.is::<MalKeyword>() {
+        Ok(arg.clone())
+    } else if let Ok(string) = arg.as_type::<MalString>() {
+        Ok(Rc::from(MalKeyword::from(format!(":{}", string))))
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+#[builtin_func]
+pub fn vector(args: &[Rc<dyn MalType>]) -> MalResult {
+    Ok(Rc::from(MalVec::from(Vec::from(args))))
+}
+
+#[builtin_func(symbol = "vector?")]
+pub fn is_vector(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalVec>())))
+}
+
+#[builtin_func(symbol = "sequential?")]
+pub fn is_sequential(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.as_array().is_ok())))
+}
+
+#[builtin_func(symbol = "hash-map")]
+pub fn hash_map(args: &[Rc<dyn MalType>]) -> MalResult {
+    if args.len() % 2 != 0 {
+        return Err(MalError::TypeError);
+    }
+    let items = args.iter().cloned();
+    let map = MalHashMap::try_from_iter(items)?;
+    Ok(Rc::from(map))
+}
+
+#[builtin_func(symbol = "map?")]
+pub fn is_map(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalHashMap>())))
+}
+
+#[builtin_func]
+pub fn assoc(map: &MalHashMap, args: &[Rc<dyn MalType>]) -> MalResult {
+    if args.len() % 2 != 0 {
+        return Err(MalError::TypeError);
+    }
+    let result = map.insert(args.iter().cloned())?;
+    Ok(Rc::from(result))
+}
+
+#[builtin_func]
+pub fn dissoc(map: &MalHashMap, args: &[Rc<dyn MalType>]) -> MalResult {
+    let result = map.remove(args.iter())?;
+    Ok(Rc::from(result))
+}
+
+#[builtin_func]
+pub fn get(map: &Rc<dyn MalType>, arg: &Rc<dyn MalType>) -> MalResult {
+    if map.is::<MalNil>() {
+        return Ok(MalNil::new());
+    }
+    let map = map.as_type::<MalHashMap>()?;
+    let key = if let Ok(string) = arg.as_type::<MalString>() {
+        &string.value
+    } else if let Ok(keyword) = arg.as_type::<MalKeyword>() {
+        &keyword.value
+    } else {
+        return Err(MalError::TypeError);
+    };
+    if let Some(value) = map.get(key) {
+        Ok(value.clone())
+    } else {
+        Ok(MalNil::new())
+    }
+}
+
+#[builtin_func(symbol = "contains?")]
+pub fn contains(map: &MalHashMap, arg: &Rc<dyn MalType>) -> MalResult {
+    let key = if let Ok(string) = arg.as_type::<MalString>() {
+        &string.value
+    } else if let Ok(keyword) = arg.as_type::<MalKeyword>() {
+        &keyword.value
+    } else {
+        return Err(MalError::TypeError);
+    };
+    Ok(Rc::from(MalBool::from(map.contains(key))))
+}
+
+#[builtin_func]
+pub fn keys(map: &MalHashMap) -> MalResult {
+    let list: Vec<_> = map
+        .keys()
+        .map(|s| {
+            let result: Rc<dyn MalType> = if s.starts_with(':') {
+                Rc::from(MalKeyword::from(s.as_str()))
+            } else {
+                Rc::from(MalString::from(s.as_str()))
+            };
+            result
+        })
+        .collect();
+    Ok(Rc::from(MalList::from(list)))
+}
+
+#[builtin_func]
+pub fn vals(map: &MalHashMap) -> MalResult {
+    let list: Vec<_> = map.values().cloned().collect();
+    Ok(Rc::from(MalList::from(list)))
 }

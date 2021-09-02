@@ -57,6 +57,27 @@ impl Env {
         env.register(MAL_NTH);
         env.register(MAL_FIRST);
         env.register(MAL_REST);
+        env.register(MAL_THROW);
+        env.register(MAL_APPLY);
+        env.register(MAL_MAP);
+        env.register(MAL_IS_NIL);
+        env.register(MAL_IS_TRUE);
+        env.register(MAL_IS_FALSE);
+        env.register(MAL_IS_SYMBOL);
+        env.register(MAL_SYMBOL);
+        env.register(MAL_IS_KEYWORD);
+        env.register(MAL_KEYWORD);
+        env.register(MAL_VECTOR);
+        env.register(MAL_IS_VECTOR);
+        env.register(MAL_IS_SEQUENTIAL);
+        env.register(MAL_HASH_MAP);
+        env.register(MAL_IS_MAP);
+        env.register(MAL_ASSOC);
+        env.register(MAL_DISSOC);
+        env.register(MAL_GET);
+        env.register(MAL_CONTAINS);
+        env.register(MAL_KEYS);
+        env.register(MAL_VALS);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
         rep(

@@ -1,9 +1,16 @@
-use std::{collections::HashMap, fmt::Display, mem::MaybeUninit, rc::Rc};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    mem::{self, MaybeUninit},
+    rc::Rc,
+};
 
 use env::Env;
 use mal_derive::builtin_func;
 use reader::Reader;
-use types::{MalClojure, MalFunc, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec};
+use types::{
+    MalClojure, MalException, MalFunc, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec,
+};
 
 pub mod core;
 pub mod env;
@@ -12,16 +19,27 @@ pub mod types;
 
 pub type MalResult = Result<Rc<dyn MalType>, MalError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MalError {
     NotCallable,
     NotFound(Rc<dyn MalType>),
+    Exception(Rc<dyn MalType>),
     EOF,
     Unbalanced,
     TypeError,
     Unimplemented,
     IOError,
     IndexOutOfRange,
+}
+
+impl PartialEq for MalError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::NotFound(l0), Self::NotFound(r0)) => l0.as_ref().equal(r0.as_ref()),
+            (Self::Exception(l0), Self::Exception(r0)) => l0.as_ref().equal(r0.as_ref()),
+            _ => mem::discriminant(self) == mem::discriminant(other),
+        }
+    }
 }
 
 impl Display for MalError {
@@ -35,6 +53,7 @@ impl Display for MalError {
             MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
             MalError::IOError => write!(f, "IO Error"),
             MalError::IndexOutOfRange => write!(f, "Index out of range."),
+            MalError::Exception(ex) => write!(f, "Exception {}", ex),
         }
     }
 }
@@ -92,6 +111,8 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                 break mal_quote(&list.values()[1..], env);
             } else if list.is_special("quasiquote") {
                 break mal_quasiquote(&list.values()[1..], env);
+            } else if list.is_special("try*") {
+                break mal_try(&list.values()[1..], env);
             } else {
                 let new_list = eval_ast(ast, env)?;
                 let values = new_list.as_type::<MalList>()?.values();
@@ -322,4 +343,30 @@ pub fn macro_expand(mut ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
         ast = eval(new_ast, &new_env)?;
     }
     Ok(ast)
+}
+
+#[builtin_func(name = "try", symbol = "try*", special)]
+pub fn try_fn(ast: &Rc<dyn MalType>, catch: Option<&Rc<dyn MalType>>, env: &Rc<Env>) -> MalResult {
+    match eval(ast.clone(), env) {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            let exception = if let MalError::Exception(exception) = err {
+                exception
+            } else {
+                Rc::from(MalException::from(err))
+            };
+            if let Some(catch) = catch {
+                let catch = catch.as_type::<MalList>()?;
+                if !catch.is_special("catch*") || catch.len() != 3 {
+                    return Err(MalError::TypeError);
+                }
+                let symbol = catch[1].as_type()?;
+                let outer = Env::with_outer(env.clone());
+                outer.set(symbol, exception);
+                eval(catch[2].clone(), &outer)
+            } else {
+                Ok(exception)
+            }
+        }
+    }
 }

@@ -7,6 +7,7 @@ use std::{
 pub mod atom;
 pub mod boolean;
 pub mod clojure;
+pub mod exception;
 pub mod func;
 pub mod hashmap;
 pub mod int;
@@ -17,9 +18,9 @@ pub mod symbol;
 pub mod vec;
 
 pub use crate::types::{
-    atom::MalAtom, boolean::MalBool, clojure::MalClojure, func::MalFunc, hashmap::MalHashMap,
-    int::MalInt, keyword::MalKeyword, list::MalList, string::MalString, symbol::MalSymbol,
-    vec::MalVec,
+    atom::MalAtom, boolean::MalBool, clojure::MalClojure, exception::MalException, func::MalFunc,
+    hashmap::MalHashMap, int::MalInt, keyword::MalKeyword, list::MalList, string::MalString,
+    symbol::MalSymbol, vec::MalVec,
 };
 use crate::MalError;
 
