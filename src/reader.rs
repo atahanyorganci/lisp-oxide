@@ -193,8 +193,8 @@ impl Reader<'_> {
                 if INT_RE.is_match_at(&atom, 0) {
                     let value = i64::from_str(&atom).unwrap();
                     Ok(Rc::from(MalInt::from(value)))
-                } else if let Some(word) = atom.strip_prefix(':') {
-                    Ok(Rc::from(MalKeyword::from(word.to_string())))
+                } else if atom.starts_with(':') {
+                    Ok(Rc::from(MalKeyword::from(atom)))
                 } else if atom == "true" {
                     Ok(Rc::from(MalBool::from(true)))
                 } else if atom == "false" {

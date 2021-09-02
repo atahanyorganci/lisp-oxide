@@ -17,13 +17,13 @@ impl From<String> for MalKeyword {
 
 impl Debug for MalKeyword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ":{}", self.value)
+        write!(f, "{}", self.value)
     }
 }
 
 impl Display for MalKeyword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ":{}", self.value)
+        write!(f, "{}", self.value)
     }
 }
 
