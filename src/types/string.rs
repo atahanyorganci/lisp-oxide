@@ -6,11 +6,18 @@ use std::{
 use super::MalType;
 
 pub struct MalString {
-    value: String,
+    pub value: String,
 }
 
 impl From<String> for MalString {
     fn from(value: String) -> Self {
+        MalString { value }
+    }
+}
+
+impl From<&str> for MalString {
+    fn from(value: &str) -> Self {
+        let value = String::from(value);
         MalString { value }
     }
 }
