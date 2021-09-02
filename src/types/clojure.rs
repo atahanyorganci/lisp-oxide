@@ -17,13 +17,21 @@ pub struct MalClojure {
 
 impl Debug for MalClojure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "#<function>")
+        if self.is_macro {
+            write!(f, "#<macro>")
+        } else {
+            write!(f, "#<function>")
+        }
     }
 }
 
 impl Display for MalClojure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "#<function>")
+        if self.is_macro {
+            write!(f, "#<macro>")
+        } else {
+            write!(f, "#<function>")
+        }
     }
 }
 
@@ -76,17 +84,17 @@ impl MalClojure {
 
         for i in 0..self.arg_symbols.len() {
             let symbol = match self.arg_symbols.get(i) {
-                Some(symbol) => symbol.as_type()?,
+                Some(symbol) => symbol.as_type::<MalSymbol>()?,
                 None => return Err(MalError::TypeError),
             };
             if symbol == "&" {
                 // If current symbol is `&` then next symbol should capture rest of expressions as list
                 let symbol = match self.arg_symbols.get(i + 1) {
-                    Some(symbol) => symbol.as_type()?,
+                    Some(symbol) => symbol.as_type::<MalSymbol>()?,
                     None => return Err(MalError::TypeError),
                 };
                 let value = if self.is_macro() {
-                    let variadic: Vec<_> = arg_exprs[i..].iter().cloned().collect();
+                    let variadic = arg_exprs[i..].to_vec();
                     Rc::from(MalList::from(variadic))
                 } else {
                     MalClojure::get_variadic_args(&arg_exprs[i..], env)?
@@ -95,8 +103,7 @@ impl MalClojure {
                 break;
             } else {
                 let value = match arg_exprs.get(i) {
-                    Some(expr) if self.is_macro => expr.clone(),
-                    Some(expr) => eval(expr.clone(), env)?,
+                    Some(expr) => expr.clone(),
                     None => return Err(MalError::TypeError),
                 };
                 current.set(symbol, value);
