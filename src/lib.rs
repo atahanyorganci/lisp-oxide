@@ -69,9 +69,10 @@ pub fn read(input: &str) -> MalResult {
     Reader::read_from(&mut reader)
 }
 
-pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
+pub fn eval(mut ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let mut init = false;
     let mut outer: MaybeUninit<Rc<Env>> = MaybeUninit::uninit();
+    let mut env = env;
     let result = loop {
         ast = macro_expand(ast, env)?;
         if let Ok(list) = ast.as_type::<MalList>() {
@@ -89,11 +90,11 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                         let to_drop = outer.assume_init();
                         drop(to_drop);
                     } else {
-                        init = false;
+                        init = true;
                     }
                     outer = MaybeUninit::uninit();
-                    outer.as_mut_ptr().write(new_env);
-                    env = &*outer.as_ptr();
+                    outer.write(new_env);
+                    env = outer.assume_init_ref();
                 }
             } else if list.is_special("macroexpand") {
                 if let Some(ast) = list.get(1) {
@@ -126,11 +127,11 @@ pub fn eval(mut ast: Rc<dyn MalType>, mut env: &Rc<Env>) -> MalResult {
                             let to_drop = outer.assume_init();
                             drop(to_drop);
                         } else {
-                            init = false;
+                            init = true;
                         }
                         outer = MaybeUninit::uninit();
-                        outer.as_mut_ptr().write(new_env);
-                        env = &*outer.as_ptr();
+                        outer.write(new_env);
+                        env = outer.assume_init_ref();
                     }
                 } else {
                     break Err(MalError::NotCallable);
