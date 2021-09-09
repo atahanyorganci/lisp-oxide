@@ -1,4 +1,4 @@
-use std::{convert::TryInto, fmt::Write, fs, rc::Rc};
+use std::{convert::TryInto, fmt::Write, fs, iter, rc::Rc};
 
 use mal_derive::builtin_func;
 
@@ -58,7 +58,8 @@ pub fn println_fn(args: &[Rc<dyn MalType>]) -> MalResult {
 
 #[builtin_func]
 pub fn list(args: &[Rc<dyn MalType>]) -> MalResult {
-    Ok(Rc::from(MalList::from(Vec::from(args))))
+    let list: MalList = args.iter().collect();
+    Ok(Rc::from(list))
 }
 
 #[builtin_func(symbol = "list?")]
@@ -188,31 +189,30 @@ pub fn eval_fn(ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
 
 #[builtin_func]
 pub fn cons(elem: &Rc<dyn MalType>, list: &Rc<dyn MalType>) -> MalResult {
-    let arr = list.as_array()?;
-    let mut vec = Vec::with_capacity(arr.len());
-    vec.push(elem.clone());
-    for elem in arr {
-        vec.push(elem.clone());
-    }
-    Ok(Rc::from(MalList::from(vec)))
+    let list: MalList = iter::repeat(elem)
+        .take(1)
+        .chain(list.as_array()?.iter())
+        .collect();
+    Ok(Rc::from(list))
 }
 
 #[builtin_func]
 pub fn concat(elems: &[Rc<dyn MalType>]) -> MalResult {
-    let mut capacity = 0;
-    for elem in elems {
-        capacity += elem.as_array()?.len();
+    if elems.is_empty() {
+        return Ok(Rc::from(MalList::default()));
     }
-
-    let mut result = Vec::with_capacity(capacity);
-    for elem in elems {
-        let arr = elem.as_array()?;
-        for item in arr {
-            result.push(item.clone());
-        }
+    let is_iterable = elems
+        .iter()
+        .any(|item| !item.is::<MalList>() || !item.is::<MalVec>());
+    if !is_iterable {
+        return Err(MalError::TypeError);
     }
-
-    Ok(Rc::from(MalList::from(result)))
+    let list: MalList = elems
+        .iter()
+        .map(|item| item.as_array().unwrap().iter())
+        .flatten()
+        .collect();
+    Ok(Rc::from(list))
 }
 
 #[builtin_func]
@@ -256,8 +256,8 @@ pub fn rest(list_or_vec: &Rc<dyn MalType>) -> MalResult {
     if arr.is_empty() {
         Ok(Rc::from(MalList::new()))
     } else {
-        let r: Vec<_> = arr.iter().skip(1).cloned().collect();
-        Ok(Rc::from(MalList::from(r)))
+        let r: MalList = arr.iter().skip(1).cloned().collect();
+        Ok(Rc::from(r))
     }
 }
 
@@ -435,7 +435,7 @@ pub fn contains(map: &MalHashMap, arg: &Rc<dyn MalType>) -> MalResult {
 
 #[builtin_func]
 pub fn keys(map: &MalHashMap) -> MalResult {
-    let list: Vec<_> = map
+    let list: MalList = map
         .keys()
         .map(|s| {
             let result: Rc<dyn MalType> = if s.starts_with(':') {
@@ -446,11 +446,11 @@ pub fn keys(map: &MalHashMap) -> MalResult {
             result
         })
         .collect();
-    Ok(Rc::from(MalList::from(list)))
+    Ok(Rc::from(list))
 }
 
 #[builtin_func]
 pub fn vals(map: &MalHashMap) -> MalResult {
-    let list: Vec<_> = map.values().cloned().collect();
-    Ok(Rc::from(MalList::from(list)))
+    let list: MalList = map.values().collect();
+    Ok(Rc::from(list))
 }

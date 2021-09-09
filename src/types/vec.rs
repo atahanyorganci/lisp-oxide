@@ -1,6 +1,7 @@
 use std::{
     any::Any,
     fmt::{Debug, Display},
+    iter::FromIterator,
     rc::Rc,
 };
 
@@ -13,6 +14,20 @@ pub struct MalVec {
 impl From<Vec<Rc<dyn MalType>>> for MalVec {
     fn from(value: Vec<Rc<dyn MalType>>) -> Self {
         MalVec { value }
+    }
+}
+
+impl FromIterator<Rc<dyn MalType>> for MalVec {
+    fn from_iter<T: IntoIterator<Item = Rc<dyn MalType>>>(iter: T) -> Self {
+        let value = iter.into_iter().collect();
+        Self { value }
+    }
+}
+
+impl<'a> FromIterator<&'a Rc<dyn MalType>> for MalVec {
+    fn from_iter<T: IntoIterator<Item = &'a Rc<dyn MalType>>>(iter: T) -> Self {
+        let value = iter.into_iter().cloned().collect();
+        Self { value }
     }
 }
 
