@@ -304,11 +304,8 @@ pub fn quasiquote(to_quote: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
 
 #[builtin_func(name = "defmacro", special)]
 pub fn defmacro_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
-    let mut value = eval(ast.clone(), env)?;
-    match Rc::get_mut(&mut value) {
-        Some(value) => value.as_type_mut::<MalClojure>()?.set_macro(),
-        None => unreachable!(),
-    }
+    let value = eval(ast.clone(), env)?;
+    value.as_type::<MalClojure>()?.set_macro();
     env.set(symbol, value.clone());
     Ok(value)
 }
