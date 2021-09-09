@@ -153,11 +153,11 @@ impl MalHashMap {
         Ok(result)
     }
 
-    pub fn get(&self, key: &String) -> Option<&Rc<dyn MalType>> {
+    pub fn get(&self, key: &str) -> Option<&Rc<dyn MalType>> {
         self.value.get(key)
     }
 
-    pub fn contains(&self, key: &String) -> bool {
+    pub fn contains(&self, key: &str) -> bool {
         self.value.contains_key(key)
     }
 
