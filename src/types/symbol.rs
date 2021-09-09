@@ -10,15 +10,14 @@ pub struct MalSymbol {
     value: String,
 }
 
-impl From<String> for MalSymbol {
-    fn from(value: String) -> Self {
-        MalSymbol { value }
-    }
-}
-impl From<&str> for MalSymbol {
-    fn from(value: &str) -> Self {
-        let value = String::from(value);
-        MalSymbol { value }
+impl<T> From<T> for MalSymbol
+where
+    T: Into<String>,
+{
+    fn from(value: T) -> Self {
+        Self {
+            value: value.into(),
+        }
     }
 }
 

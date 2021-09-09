@@ -9,16 +9,14 @@ pub struct MalString {
     pub value: String,
 }
 
-impl From<String> for MalString {
-    fn from(value: String) -> Self {
-        MalString { value }
-    }
-}
-
-impl From<&str> for MalString {
-    fn from(value: &str) -> Self {
-        let value = String::from(value);
-        MalString { value }
+impl<T> From<T> for MalString
+where
+    T: Into<String>,
+{
+    fn from(value: T) -> Self {
+        Self {
+            value: value.into(),
+        }
     }
 }
 

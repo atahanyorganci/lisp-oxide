@@ -9,9 +9,14 @@ pub struct MalBool {
     value: bool,
 }
 
-impl From<bool> for MalBool {
-    fn from(value: bool) -> Self {
-        MalBool { value }
+impl<T> From<T> for MalBool
+where
+    T: Into<bool>,
+{
+    fn from(value: T) -> Self {
+        Self {
+            value: value.into(),
+        }
     }
 }
 
