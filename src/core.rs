@@ -1,4 +1,4 @@
-use std::{convert::TryInto, fmt::Write, fs, iter, rc::Rc};
+use std::{convert::TryInto, fmt::Write, fs, io, iter, rc::Rc, time::SystemTime};
 
 use mal_derive::builtin_func;
 
@@ -453,4 +453,107 @@ pub fn keys(map: &MalHashMap) -> MalResult {
 pub fn vals(map: &MalHashMap) -> MalResult {
     let list: MalList = map.values().collect();
     Ok(Rc::from(list))
+}
+
+#[builtin_func]
+pub fn readline(prompt: &MalString) -> MalResult {
+    // Print prompt and flush stdout
+    print!("{}", prompt);
+    let mut stdout = io::stdout();
+    io::Write::flush(&mut stdout).unwrap();
+
+    let mut buffer = String::new();
+    let stdin = io::stdin();
+    match stdin.read_line(&mut buffer) {
+        Ok(count) if count == 0 => {
+            println!();
+            Ok(MalNil::new())
+        }
+        Ok(_) => Ok(Rc::from(MalString::from(buffer))),
+        Err(_) => todo!(),
+    }
+}
+
+#[builtin_func(symbol = "time-ms")]
+pub fn time_ms() -> MalResult {
+    let ms = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(duration) => duration.as_millis(),
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    };
+    let result: i64 = ms.try_into().unwrap();
+    Ok(Rc::from(MalInt::from(result)))
+}
+
+#[builtin_func]
+pub fn conj(collection: &Rc<dyn MalType>, rest: &[Rc<dyn MalType>]) -> MalResult {
+    if rest.is_empty() {
+        return Err(MalError::TypeError);
+    }
+    let iter = collection.as_array()?.iter().chain(rest.iter());
+
+    let result: Rc<dyn MalType> = if collection.is::<MalList>() {
+        let list: MalList = iter.collect();
+        Rc::from(list)
+    } else {
+        let vector: MalVec = iter.collect();
+        Rc::from(vector)
+    };
+    Ok(result)
+}
+
+#[builtin_func(symbol = "string?")]
+pub fn is_string(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalString>())))
+}
+
+#[builtin_func(symbol = "number?")]
+pub fn is_number(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(obj.is::<MalInt>())))
+}
+
+#[builtin_func(symbol = "fn?")]
+pub fn is_fn(obj: &dyn MalType) -> MalResult {
+    Ok(Rc::from(MalBool::from(
+        obj.is::<MalClojure>() || obj.is::<MalFunc>(),
+    )))
+}
+
+#[builtin_func(symbol = "macro?")]
+pub fn is_macro(obj: &dyn MalType) -> MalResult {
+    let result = match obj.as_type::<MalClojure>() {
+        Ok(clojure) => clojure.is_macro(),
+        Err(_) => false,
+    };
+    Ok(Rc::from(MalBool::from(result)))
+}
+
+#[builtin_func]
+pub fn seq(obj: &Rc<dyn MalType>) -> MalResult {
+    if let Ok(vector) = obj.as_type::<MalVec>() {
+        let list: MalList = vector.values().iter().collect();
+        Ok(Rc::from(list))
+    } else if let Ok(string) = obj.as_type::<MalString>() {
+        let list: MalList = string
+            .value
+            .chars()
+            .map(|ch| Rc::from(MalString::from(ch)) as Rc<dyn MalType>)
+            .collect();
+        Ok(Rc::from(list))
+    } else if obj.is::<MalList>() {
+        Ok(obj.clone())
+    } else if obj.is::<MalNil>() {
+        Ok(MalNil::new())
+    } else {
+        Err(MalError::TypeError)
+    }
+}
+
+#[builtin_func]
+pub fn meta(_arg: &Rc<dyn MalType>) -> MalResult {
+    Err(MalError::Unimplemented)
+}
+
+#[builtin_func(symbol = "with-meta")]
+pub fn with_meta(_arg: &Rc<dyn MalType>) -> MalResult {
+    Err(MalError::Unimplemented)
 }

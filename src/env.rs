@@ -26,6 +26,11 @@ impl Env {
     pub fn new() -> Rc<Self> {
         let env = Rc::from(Self::default());
 
+        env.set(
+            &MalSymbol::from("*host-language*"),
+            Rc::from(MalString::from("Rust 1.54")),
+        );
+
         env.register(MAL_ADD);
         env.register(MAL_SUBTRACT);
         env.register(MAL_MULTIPLY);
@@ -78,6 +83,16 @@ impl Env {
         env.register(MAL_CONTAINS);
         env.register(MAL_KEYS);
         env.register(MAL_VALS);
+        env.register(MAL_READLINE);
+        env.register(MAL_TIME_MS);
+        env.register(MAL_CONJ);
+        env.register(MAL_IS_STRING);
+        env.register(MAL_IS_NUMBER);
+        env.register(MAL_IS_FN);
+        env.register(MAL_IS_MACRO);
+        env.register(MAL_SEQ);
+        env.register(MAL_META);
+        env.register(MAL_WITH_META);
 
         rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
         rep(
