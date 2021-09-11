@@ -2,6 +2,7 @@ use std::{
     any::Any,
     fmt::{Debug, Display},
     iter::FromIterator,
+    ops::Deref,
     rc::Rc,
 };
 
@@ -85,12 +86,11 @@ impl MalType for MalVec {
     }
 
     fn equal(&self, rhs: &dyn MalType) -> bool {
-        let lhs = self.values();
         let rhs = match rhs.as_array() {
             Ok(rhs) => rhs,
             Err(_) => return false,
         };
-        array_equal(lhs, rhs)
+        array_equal(&self, rhs)
     }
 }
 
@@ -101,5 +101,13 @@ impl IntoIterator for MalVec {
 
     fn into_iter(self) -> Self::IntoIter {
         self.value.into_iter()
+    }
+}
+
+impl Deref for MalVec {
+    type Target = [Rc<dyn MalType>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
     }
 }

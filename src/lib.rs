@@ -1,3 +1,6 @@
+#![deny(missing_debug_implementations, rust_2018_idioms)]
+#![deny(clippy::all)]
+
 use std::{
     collections::HashMap,
     fmt::Display,

@@ -2,7 +2,7 @@ use std::{
     any::Any,
     fmt::{Debug, Display},
     iter::FromIterator,
-    ops::Index,
+    ops::{Deref, Index},
     rc::Rc,
 };
 
@@ -119,11 +119,18 @@ impl MalType for MalList {
     }
 
     fn equal(&self, rhs: &dyn MalType) -> bool {
-        let lhs = self.values();
         let rhs = match rhs.as_array() {
             Ok(rhs) => rhs,
             Err(_) => return false,
         };
-        array_equal(lhs, rhs)
+        array_equal(self, rhs)
+    }
+}
+
+impl Deref for MalList {
+    type Target = [Rc<dyn MalType>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
     }
 }

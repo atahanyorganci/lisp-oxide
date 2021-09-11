@@ -50,9 +50,9 @@ impl dyn MalType {
 
     pub fn as_array(&self) -> Result<&[Rc<dyn MalType>], MalError> {
         if let Ok(list) = self.as_type::<MalList>() {
-            Ok(list.values())
+            Ok(list)
         } else if let Ok(vector) = self.as_type::<MalVec>() {
-            Ok(vector.values())
+            Ok(vector)
         } else {
             Err(MalError::TypeError)
         }

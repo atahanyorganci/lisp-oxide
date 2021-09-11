@@ -89,7 +89,7 @@ impl MalHashMap {
         self.value.len()
     }
 
-    pub fn iter(&self) -> Iter<String, Rc<dyn MalType>> {
+    pub fn iter(&self) -> Iter<'_, String, Rc<dyn MalType>> {
         self.value.iter()
     }
 
