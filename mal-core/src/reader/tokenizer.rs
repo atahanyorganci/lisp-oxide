@@ -102,8 +102,14 @@ impl Iterator for Tokenizer<'_> {
                 let mut remaining = self.input.get(self.index..).unwrap().chars().peekable();
                 let mut string = String::new();
                 let string_token = loop {
-                    let ch = match remaining.next() {
-                        Some(ch) => ch,
+                    match remaining.next() {
+                        Some(ch) => {
+                            self.index += 1;
+                            match ch {
+                                '"' => break Token::String(string),
+                                _ => string.push(ch),
+                            }
+                        }
                         None => {
                             if string.is_empty() {
                                 return Some(Err(ParseError::UnbalancedEmptyString));
@@ -112,33 +118,6 @@ impl Iterator for Tokenizer<'_> {
                             }
                         }
                     };
-
-                    self.index += 1;
-                    match ch {
-                        '"' => {
-                            break Token::String(string);
-                        }
-                        '\\' => match remaining.peek() {
-                            Some('"') => {
-                                remaining.next().unwrap();
-                                string.push('"');
-                                self.index += 1;
-                            }
-                            Some('n') => {
-                                remaining.next().unwrap();
-                                string.push('\n');
-                                self.index += 1;
-                            }
-                            Some('\\') => {
-                                remaining.next().unwrap();
-                                string.push('\\');
-                                self.index += 1;
-                            }
-                            Some(_) => string.push('\\'),
-                            None => return Some(Err(ParseError::UnbalancedString(string))),
-                        },
-                        _ => string.push(ch),
-                    }
                 };
                 string_token
             }

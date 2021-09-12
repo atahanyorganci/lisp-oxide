@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -21,24 +22,28 @@ where
 }
 
 impl Debug for MalString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"")?;
-        for ch in self.value.chars() {
-            match ch {
-                '"' => write!(f, "\\\"")?,
-                '\n' => write!(f, "\\n")?,
-                '\\' => write!(f, "\\\\")?,
-                '\t' => write!(f, "\\t")?,
-                _ => write!(f, "{}", ch)?,
-            }
-        }
-        write!(f, "\"")
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.value)
     }
 }
 
 impl Display for MalString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"")?;
+        let mut chars = self.value.chars().peekable();
+        while let Some(ch) = chars.next() {
+            match ch {
+                '\\' => match chars.next() {
+                    Some('"') => write!(f, "\"")?,
+                    Some('n') => write!(f, "\n")?,
+                    Some('t') => write!(f, "\t")?,
+                    Some('r') => write!(f, "\r")?,
+                    Some(_) | None => return fmt::Result::Err(fmt::Error),
+                },
+                _ => write!(f, "{}", ch)?,
+            }
+        }
+        write!(f, "\"")
     }
 }
 
