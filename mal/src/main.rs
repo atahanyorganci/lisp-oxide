@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt::Write, rc::Rc};
 
 use mal_core::{
     env::Env,
-    reader::{AtomKind, Reader, Token, Tokenizer},
+    reader::{AtomKind, ParseError, Reader, Token, Tokenizer},
 };
 use rustyline::{
     completion::Completer,
@@ -32,9 +32,9 @@ impl Completer for MalHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
-        let tokenizer = Tokenizer::from(line);
+        let mut tokenizer = Tokenizer::from(line);
 
-        for token in tokenizer {
+        while let Some(Ok(token)) = tokenizer.next() {
             if token.stop < pos {
                 continue;
             }
@@ -56,7 +56,26 @@ impl Highlighter for MalHelper {
         let mut owned = String::with_capacity(width);
 
         let tokenizer = Tokenizer::from(line);
-        for full_token in tokenizer {
+        for result in tokenizer {
+            let full_token = match result {
+                Ok(full_token) => full_token,
+                Err(err) => {
+                    match err {
+                        ParseError::UnbalancedEmptyString => {
+                            owned.write_str("\x1b[1;31m\"\x1b[0m").unwrap()
+                        }
+                        ParseError::UnbalancedString(unbalanced) => owned
+                            .write_fmt(format_args!("\x1b[1;31m\"{}\x1b[0m", unbalanced))
+                            .unwrap(),
+                        ParseError::UnbalancedList
+                        | ParseError::EOF
+                        | ParseError::UnbalancedVec
+                        | ParseError::UnbalancedMap
+                        | ParseError::UnexpectedToken(_) => unreachable!(),
+                    }
+                    continue;
+                }
+            };
             let token = full_token.as_token();
             match token {
                 Token::TildeAt
@@ -78,7 +97,7 @@ impl Highlighter for MalHelper {
                 | Token::At => owned.write_fmt(format_args!("{}", token)).unwrap(),
                 Token::String(string) => {
                     owned
-                        .write_fmt(format_args!("\x1b[1;31m\"{:?}\"\x1b[0m", string))
+                        .write_fmt(format_args!("\x1b[1;31m\"{}\"\x1b[0m", string))
                         .unwrap();
                 }
                 Token::Comment(comment) => {
@@ -102,10 +121,6 @@ impl Highlighter for MalHelper {
                         .write_fmt(format_args!("\x1b[1;35m{}\x1b[0m", atom))
                         .unwrap(),
                 },
-                Token::IncompleteString(incomplete) => owned
-                    .write_fmt(format_args!("\x1b[1;31m\"{}\x1b[0m", incomplete))
-                    .unwrap(),
-                Token::IncompleteEmptyString => owned.write_str("\x1b[1;31m\"\x1b[0m").unwrap(),
             }
         }
         Cow::Owned(owned)
@@ -124,7 +139,12 @@ impl Validator for MalHelper {
         let mut curly = 0;
         let mut square = 0;
         let mut paren = 0;
-        for token in reader {
+        for maybe_token in reader {
+            let token = if let Ok(token) = maybe_token {
+                token
+            } else {
+                return Ok(ValidationResult::Incomplete);
+            };
             match token {
                 Token::LeftSquare => square += 1,
                 Token::RightSquare => square -= 1,
@@ -138,13 +158,11 @@ impl Validator for MalHelper {
                 | Token::Tilde
                 | Token::Caret
                 | Token::At
-                | Token::IncompleteString(_)
                 | Token::Space
                 | Token::Newline
                 | Token::CarriageReturn
                 | Token::Tab
                 | Token::Comma
-                | Token::IncompleteEmptyString
                 | Token::String(_)
                 | Token::Comment(_)
                 | Token::Atom(_) => {}
