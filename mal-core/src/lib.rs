@@ -10,7 +10,7 @@ use std::{
 
 use env::Env;
 use mal_derive::builtin_func;
-use reader::Reader;
+use reader::{Reader, ReaderResult};
 use types::{
     MalClojure, MalException, MalFunc, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec,
 };
@@ -27,8 +27,6 @@ pub enum MalError {
     NotCallable,
     NotFound(Rc<dyn MalType>),
     Exception(Rc<dyn MalType>),
-    EOF,
-    Unbalanced,
     TypeError,
     Unimplemented,
     IOError,
@@ -50,8 +48,6 @@ impl Display for MalError {
         match self {
             MalError::NotCallable => write!(f, "not a function"),
             MalError::NotFound(symbol) => write!(f, "'{}' not found", symbol),
-            MalError::EOF => write!(f, "end of input"),
-            MalError::Unbalanced => write!(f, "unbalanced"),
             MalError::TypeError => write!(f, "type error"),
             MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
             MalError::IOError => write!(f, "IO Error"),
@@ -62,12 +58,15 @@ impl Display for MalError {
 }
 
 pub fn rep(input: &str, env: &Rc<Env>) -> Result<String, MalError> {
-    let ast = read(input)?;
+    let ast = match read(input) {
+        Ok(ast) => ast,
+        Err(_) => todo!(),
+    };
     let result = eval(ast, env)?;
     Ok(print(result))
 }
 
-pub fn read(input: &str) -> MalResult {
+pub fn read(input: &str) -> ReaderResult {
     let mut reader = Reader::from(input).peekable();
     Reader::read_from(&mut reader)
 }

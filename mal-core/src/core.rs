@@ -133,7 +133,10 @@ pub fn str_fn(args: &[Rc<dyn MalType>]) -> MalResult {
 
 #[builtin_func(symbol = "read-string")]
 pub fn read_string(string: &MalString) -> MalResult {
-    read(string.as_str())
+    match read(string.as_str()) {
+        Ok(ast) => Ok(ast),
+        Err(_) => todo!(),
+    }
 }
 
 #[builtin_func]

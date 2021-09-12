@@ -29,7 +29,7 @@ impl TryFrom<Vec<Rc<dyn MalType>>> for MalHashMap {
 
     fn try_from(value: Vec<Rc<dyn MalType>>) -> Result<Self, Self::Error> {
         if value.len() % 2 != 0 {
-            return Err(MalError::Unbalanced);
+            return Err(MalError::TypeError);
         }
         Self::try_from_iter(value.into_iter())
     }
