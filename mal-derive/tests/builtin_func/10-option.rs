@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
-use mal::{
+use mal_core::{
     env::Env,
     eval,
-    types::{MalInt, MalNil, MalType},
+    types::{func::MalFuncPtr, MalInt, MalNil, MalType},
     MalError, MalResult,
 };
 

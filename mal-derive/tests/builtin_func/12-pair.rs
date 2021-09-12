@@ -1,10 +1,9 @@
 use std::rc::Rc;
 
-use mal::{
+use mal_core::{
     env::Env,
     eval,
-    types::func::MalFuncPtr,
-    types::{MalInt, MalNil, MalSymbol, MalType},
+    types::{func::MalFuncPtr, MalInt, MalNil, MalSymbol, MalType},
     MalError, MalResult,
 };
 
@@ -30,7 +29,7 @@ pub fn prn(args: &[Rc<dyn MalType>]) -> MalResult {
 #[builtin_func(name = "def", special)]
 pub fn def_fn(symbol: &MalSymbol, ast: &Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
     let value = eval(ast.clone(), env)?;
-    env.set(symbol, value.clone())?;
+    env.set(symbol, value.clone());
     Ok(value)
 }
 

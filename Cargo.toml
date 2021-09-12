@@ -1,15 +1,6 @@
-[package]
-name = "mal"
-version = "0.1.0"
-edition = "2018"
-default-run = "mal"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["mal-derive"]
-
-[dependencies]
-rustyline = "9.0.0"
-regex = "1.5.4"
-lazy_static = "1.4.0"
-mal_derive = { path = "./mal-derive" }
+members = [
+    "mal-core",
+    "mal-derive",
+    "mal",
+]

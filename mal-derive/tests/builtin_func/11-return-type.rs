@@ -1,15 +1,10 @@
 use std::rc::Rc;
 
-use mal::{
-    env::Env,
-    eval,
-    types::{MalInt, MalType},
-    MalError, MalResult,
-};
+use mal_core::{env::Env, eval, types::MalType, MalError};
 
 use mal_derive::builtin_func;
 
-#[builtin_func(name = "let")]
+#[builtin_func(name = "let", special)]
 pub fn let_fn(
     bindings: &Rc<dyn MalType>,
     ast: &Rc<dyn MalType>,
@@ -23,9 +18,9 @@ pub fn let_fn(
     let new_env = Env::with_outer(env.clone());
     let pair_count = env_list.len() / 2;
     for i in 0..pair_count {
-        let symbol = env_list[2 * i].clone();
+        let symbol = env_list[2 * i].as_type()?;
         let value = eval(env_list[2 * i + 1].clone(), &new_env)?;
-        new_env.set(&symbol, value.clone())?;
+        new_env.set(symbol, value.clone());
     }
     Ok((ast.clone(), new_env))
 }

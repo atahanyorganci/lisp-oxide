@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Write, rc::Rc};
 
-use mal::{
+use mal_core::{
     env::Env,
     reader::{AtomKind, Reader, Token, Tokenizer},
 };
@@ -78,7 +78,7 @@ impl Highlighter for MalHelper {
                 | Token::At => owned.write_fmt(format_args!("{}", token)).unwrap(),
                 Token::String(string) => {
                     owned
-                        .write_fmt(format_args!("\x1b[1;31m\"{}\"\x1b[0m", string))
+                        .write_fmt(format_args!("\x1b[1;31m\"{:?}\"\x1b[0m", string))
                         .unwrap();
                 }
                 Token::Comment(comment) => {
@@ -174,7 +174,7 @@ fn main() {
     loop {
         let readline = editor.readline("user> ");
         match readline {
-            Ok(line) => match mal::rep(line.as_str(), &env) {
+            Ok(line) => match mal_core::rep(line.as_str(), &env) {
                 Ok(result) => println!("{}", result),
                 Err(err) => eprintln!("{}", err),
             },
