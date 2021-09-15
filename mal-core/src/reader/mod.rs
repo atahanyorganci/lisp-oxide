@@ -9,6 +9,7 @@ use std::{
     rc::Rc,
     str::FromStr,
 };
+use thiserror::Error;
 
 pub mod token;
 pub mod tokenizer;
@@ -16,15 +17,22 @@ pub mod tokenizer;
 pub use token::{FullToken, Token};
 pub use tokenizer::Tokenizer;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum ParseError {
-    EOF,
+    #[error("Expected matching '\"'.")]
     UnbalancedEmptyString,
+    #[error("Expected matching '\"' for `\"{0}`.")]
     UnbalancedString(String),
+    #[error("Expected matching '['.")]
     UnbalancedList,
+    #[error("Expected matching ']'.")]
     UnbalancedVec,
+    #[error("Expected matching '}}'.")]
     UnbalancedMap,
+    #[error("Unexpected token {0}.")]
     UnexpectedToken(Token),
+    #[error("Reached end of input")]
+    EOF,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -233,7 +241,7 @@ impl Reader<'_> {
             Some(Ok(Token::String(string))) => Ok(Rc::from(MalString::from(string))),
             Some(Ok(token)) => Err(ParseError::UnexpectedToken(token)),
             Some(Err(err)) => Err(err),
-            None => Err(ParseError::EOF),
+            None => panic!("Reached end of input."),
         }
     }
 }

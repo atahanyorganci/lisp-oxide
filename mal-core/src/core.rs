@@ -232,7 +232,10 @@ pub fn nth(arr: &Rc<dyn MalType>, idx: &MalInt) -> MalResult {
     };
     match arr.get(idx) {
         Some(result) => Ok(result.clone()),
-        None => Err(MalError::IndexOutOfRange),
+        None => Err(MalError::OutOfBounds {
+            idx,
+            len: arr.len(),
+        }),
     }
 }
 

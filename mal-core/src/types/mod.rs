@@ -30,6 +30,12 @@ pub trait MalType: Display + Debug + Any {
     fn equal(&self, rhs: &dyn MalType) -> bool;
 }
 
+impl PartialEq for dyn MalType {
+    fn eq(&self, other: &Self) -> bool {
+        self.equal(other)
+    }
+}
+
 impl dyn MalType {
     pub fn as_type<T: 'static>(&self) -> Result<&T, MalError> {
         match self.as_any().downcast_ref::<T>() {

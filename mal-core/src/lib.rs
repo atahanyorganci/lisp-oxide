@@ -3,7 +3,6 @@
 
 use std::{
     collections::HashMap,
-    fmt::Display,
     mem::{self, MaybeUninit},
     rc::Rc,
 };
@@ -11,6 +10,7 @@ use std::{
 use env::Env;
 use mal_derive::builtin_func;
 use reader::{Reader, ReaderResult};
+use thiserror::Error;
 use types::{
     MalClojure, MalException, MalFunc, MalHashMap, MalList, MalNil, MalSymbol, MalType, MalVec,
 };
@@ -22,37 +22,41 @@ pub mod types;
 
 pub type MalResult = Result<Rc<dyn MalType>, MalError>;
 
-#[derive(Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum MalError {
-    NotCallable,
+    #[error("`{0}` is not callable.")]
+    NotCallable(Rc<dyn MalType>),
+    #[error("`{0}` not found in current scope.")]
     NotFound(Rc<dyn MalType>),
+    #[error("Exception `{0}`")]
     Exception(Rc<dyn MalType>),
+    #[error("Type error")]
     TypeError,
+    #[error("Not implemented!")]
     Unimplemented,
+    #[error("IOError")]
     IOError,
-    IndexOutOfRange,
+    #[error("{idx} is out of bounds, index should be between 0 and {len}")]
+    OutOfBounds { idx: usize, len: usize },
 }
 
 impl PartialEq for MalError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::NotFound(l0), Self::NotFound(r0)) => l0.as_ref().equal(r0.as_ref()),
-            (Self::Exception(l0), Self::Exception(r0)) => l0.as_ref().equal(r0.as_ref()),
+            (Self::NotCallable(l0), Self::NotCallable(r0)) => l0 == r0,
+            (Self::NotFound(l0), Self::NotFound(r0)) => l0 == r0,
+            (Self::Exception(l0), Self::Exception(r0)) => l0 == r0,
+            (
+                Self::OutOfBounds {
+                    idx: l_idx,
+                    len: l_len,
+                },
+                Self::OutOfBounds {
+                    idx: r_idx,
+                    len: r_len,
+                },
+            ) => l_idx == r_idx && l_len == r_len,
             _ => mem::discriminant(self) == mem::discriminant(other),
-        }
-    }
-}
-
-impl Display for MalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MalError::NotCallable => write!(f, "not a function"),
-            MalError::NotFound(symbol) => write!(f, "'{}' not found", symbol),
-            MalError::TypeError => write!(f, "type error"),
-            MalError::Unimplemented => write!(f, "-- UNIMPLEMENTED --"),
-            MalError::IOError => write!(f, "IO Error"),
-            MalError::IndexOutOfRange => write!(f, "Index out of range."),
-            MalError::Exception(ex) => write!(f, "Exception {}", ex),
         }
     }
 }
@@ -136,7 +140,7 @@ pub fn eval(mut ast: Rc<dyn MalType>, env: &Rc<Env>) -> MalResult {
                         env = outer.assume_init_ref();
                     }
                 } else {
-                    break Err(MalError::NotCallable);
+                    break Err(MalError::NotCallable(values[0].clone()));
                 }
             }
         } else {
