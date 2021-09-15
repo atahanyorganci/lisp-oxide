@@ -32,14 +32,16 @@ impl Completer for MalHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
-        let mut tokenizer = Tokenizer::from(line);
+        let tokenizer = Tokenizer::from(line);
 
-        while let Some(Ok(token)) = tokenizer.next() {
-            if token.stop < pos {
-                continue;
-            }
-            if let Token::Atom(atom) = token.as_token() {
-                return Ok((token.start, self.env.starts_with(atom)));
+        for maybe_token in tokenizer {
+            match maybe_token {
+                Ok(token) if token.stop >= pos => {
+                    if let Token::Atom(atom) = token.as_token() {
+                        return Ok((token.start, self.env.starts_with(atom)));
+                    }
+                }
+                Ok(_) | Err(_) => {}
             }
         }
         Err(ReadlineError::Eof)
@@ -56,22 +58,22 @@ impl Highlighter for MalHelper {
         let mut owned = String::with_capacity(width);
 
         let tokenizer = Tokenizer::from(line);
-        for result in tokenizer {
-            let full_token = match result {
+        for maybe_full_token in tokenizer {
+            let full_token = match maybe_full_token {
                 Ok(full_token) => full_token,
-                Err(err) => {
-                    match err {
+                Err(e) => {
+                    match e {
                         ParseError::UnbalancedEmptyString => {
                             owned.write_str("\x1b[1;31m\"\x1b[0m").unwrap()
                         }
-                        ParseError::UnbalancedString(unbalanced) => owned
-                            .write_fmt(format_args!("\x1b[1;31m\"{}\x1b[0m", unbalanced))
+                        ParseError::UnbalancedString(string) => owned
+                            .write_fmt(format_args!("\x1b[1;31m\"{}\"\x1b[0m", string))
                             .unwrap(),
-                        ParseError::UnbalancedList
-                        | ParseError::EOF
+                        ParseError::EOF
+                        | ParseError::UnbalancedList
                         | ParseError::UnbalancedVec
                         | ParseError::UnbalancedMap
-                        | ParseError::UnexpectedToken(_) => unreachable!(),
+                        | ParseError::UnexpectedToken(_) => (),
                     }
                     continue;
                 }
@@ -140,10 +142,9 @@ impl Validator for MalHelper {
         let mut square = 0;
         let mut paren = 0;
         for maybe_token in reader {
-            let token = if let Ok(token) = maybe_token {
-                token
-            } else {
-                return Ok(ValidationResult::Incomplete);
+            let token = match maybe_token {
+                Ok(token) => token,
+                Err(_) => return Ok(ValidationResult::Incomplete),
             };
             match token {
                 Token::LeftSquare => square += 1,
